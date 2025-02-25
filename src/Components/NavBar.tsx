@@ -1,8 +1,9 @@
-// NavBar.tsx
-import { Link } from "react-router-dom";
-import { useState } from "react";
+// NavBar.tsx con autenticación
+import { Link, useNavigate } from "react-router-dom";
+import { useState, useContext } from "react";
 import MovieCard from './MovieCard';
-import { useFavorites } from '../context/FavoritesContext'; // Import the useFavorites hook
+import { AuthContext } from "../context/AuthContext";
+import { useFavorites } from '../context/FavoritesContext';
 
 interface Movie {
     id: number;
@@ -19,8 +20,9 @@ export default function NavBar() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
-    // Get favorites from context
+    const navigate = useNavigate();
     const { favorites } = useFavorites();
+    const { user, logout } = useContext(AuthContext);
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,6 +50,22 @@ export default function NavBar() {
         }
     };
 
+    function handleSignup(event: React.MouseEvent) {
+        event.preventDefault();
+        navigate(`/signup`);
+    }
+
+    function handleLogin(event: React.MouseEvent) {
+        event.preventDefault();
+        navigate(`/login`);
+    }
+
+    function handleLogout(event: React.MouseEvent) {
+        event.preventDefault();
+        logout();
+        navigate(`/`);
+    }
+
     return (
         <div className="flex flex-col w-full">
             <nav className="bg-gray-800 text-white p-4 w-full">
@@ -59,16 +77,45 @@ export default function NavBar() {
                     </div>
 
                     <div className="flex items-center space-x-4">
-                        {/* Favorites indicator */}
-                        <Link 
-                            to="/favorites" 
-                            className="flex items-center hover:text-yellow-300"
-                        >
-                            <span className="text-xl mr-1">⭐</span>
-                            <span className="bg-blue-600 text-white rounded-full px-2 py-1 text-xs">
-                                {favorites.length}
-                            </span>
-                        </Link>
+                        {/* Autenticación */}
+                        {user ? (
+                            <div className="flex items-center space-x-4">
+                                <span className="text-sm">{user.email}</span>
+                                
+                                {/* Favoritos */}
+                                <Link 
+                                    to="/favorites" 
+                                    className="flex items-center hover:text-yellow-300"
+                                >
+                                    <span className="text-xl mr-1">⭐</span>
+                                    <span className="bg-blue-600 text-white rounded-full px-2 py-1 text-xs">
+                                        {favorites.length}
+                                    </span>
+                                </Link>
+                                
+                                <button 
+                                    onClick={handleLogout}
+                                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm"
+                                >
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex space-x-2">
+                                <button 
+                                    onClick={handleSignup}
+                                    className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm"
+                                >
+                                    Registrarse
+                                </button>
+                                <button 
+                                    onClick={handleLogin}
+                                    className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm"
+                                >
+                                    Iniciar sesión
+                                </button>
+                            </div>
+                        )}
 
                         <form onSubmit={handleSearch} className="flex items-center">
                             <input
