@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import MovieCard from './MovieCard';
+import { useFavorites } from '../context/FavoritesContext'; // Import the useFavorites hook
 
 interface Movie {
     id: number;
@@ -17,6 +18,9 @@ export default function NavBar() {
     const [searchResults, setSearchResults] = useState<Movie[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    
+    // Get favorites from context
+    const { favorites } = useFavorites();
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,7 +58,18 @@ export default function NavBar() {
                         <Link to="/profile" className="hover:text-gray-300">Profile</Link>
                     </div>
 
-                    <div className="flex items-center mt-2 md:mt-0">
+                    <div className="flex items-center space-x-4">
+                        {/* Favorites indicator */}
+                        <Link 
+                            to="/favorites" 
+                            className="flex items-center hover:text-yellow-300"
+                        >
+                            <span className="text-xl mr-1">⭐</span>
+                            <span className="bg-blue-600 text-white rounded-full px-2 py-1 text-xs">
+                                {favorites.length}
+                            </span>
+                        </Link>
+
                         <form onSubmit={handleSearch} className="flex items-center">
                             <input
                                 type="text"
