@@ -1,13 +1,9 @@
-// src/components/ProtectedRoute.tsx
-import { ReactElement, useContext } from "react";
+// src/components/ProtectedRoute.jsx
+import { useContext } from "react";
 import { Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
-interface ProtectedRouteProps {
-  children: ReactElement;
-}
-
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children }) {
   const { user } = useContext(AuthContext);
   
   if (!user) {

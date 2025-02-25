@@ -14,8 +14,8 @@ export default function Login() {
     e.preventDefault();
     try {
       const resp = await signInWithEmailAndPassword(auth, email, password);
-      alert(`¡Bienvenido de nuevo, ${email}!`);
-      navigate('/dashboard');
+      // Redirección inmediata sin mostrar alerta
+      navigate('/dashboard', { replace: true });
       return resp.user.uid;
     } catch (e) {
       alert((e as Error).message);

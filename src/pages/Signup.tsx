@@ -14,8 +14,8 @@ export default function Signup() {
     e.preventDefault();
     try {
       const resp = await createUserWithEmailAndPassword(auth, email, password);
-      alert(`Usuario ${email} creado exitosamente!`);
-      navigate('/login');
+      // Redirección directamente al dashboard después de crear la cuenta
+      navigate('/dashboard', { replace: true });
       return resp.user.uid;
     } catch (e) {
       alert((e as Error).message);
