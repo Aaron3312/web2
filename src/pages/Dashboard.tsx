@@ -1,9 +1,9 @@
 // src/pages/Dashboard.tsx
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import NavBar from "../components/NavBar";
+import NavBar from "../Components/NavBar";
 import { useFavorites } from "../context/FavoritesContext";
-import MovieCard from "../components/MovieCard";
+import MovieCard from "../Components/MovieCard";
 
 export default function Dashboard() {
   const { user } = useContext(AuthContext);
