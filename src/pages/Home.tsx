@@ -1,8 +1,8 @@
 // Home.tsx
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import MovieCard from '../components/MovieCard';
-import NavBar from '../components/NavBar';
+import MovieCard from '../Components/MovieCard';
+import NavBar from '../Components/NavBar';
 
 const TMDB_API_KEY = '521b418e6b0c0227a624515e80c9288a';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
