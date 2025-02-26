@@ -1,7 +1,7 @@
 // src/pages/Series.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import NavBar from '../components/NavBar';
+import NavBar from '../Components/NavBar';
 import axios from 'axios';
 
 interface Series {

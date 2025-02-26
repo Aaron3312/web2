@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useFavorites } from '../context/FavoritesContext';
-import NavBar from '../components/NavBar';
+import NavBar from '../Components/NavBar';
 import axios from 'axios';
 
 interface MovieDetail {

@@ -1,7 +1,7 @@
 // Favorites.tsx
 import { useFavorites } from '../context/FavoritesContext';
-import MovieCard from '../components/MovieCard';
-import NavBar from '../components/NavBar';
+import MovieCard from '../Components/MovieCard';
+import NavBar from '../Components/NavBar';
 
 export default function Favorites() {
     const { favorites, removeFavorite } = useFavorites();
