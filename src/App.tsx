@@ -11,7 +11,7 @@ import Peliculas from './pages/Peliculas';
 import Series from './pages/Series';
 import Estrenos from './pages/Estrenos';
 import Search from './pages/Search'; // Importar la nueva página de búsqueda
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute from './Components/ProtectedRoute';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { AuthProvider } from './context/AuthContext';
 
