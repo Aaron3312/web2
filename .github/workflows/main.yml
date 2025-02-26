@@ -1,9 +1,9 @@
-
 name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ] # or your default branch
+    branches: [ main, master ] # Will trigger on push to main or master branch
+  workflow_dispatch: # Allows manual workflow runs from GitHub Actions tab
 
 permissions:
   contents: write
@@ -28,7 +28,7 @@ jobs:
         env:
           VITE_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
 
-      # If using React Router (which you are), create a 404.html that redirects to index.html
+      # If using React Router, create a 404.html that redirects to index.html
       - name: Create 404 page
         run: cp dist/index.html dist/404.html
 
