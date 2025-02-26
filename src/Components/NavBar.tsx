@@ -126,7 +126,7 @@ export default function NavBar() {
                                     <div className="w-6 h-6 border-4 border-white rounded-full"></div>
                                 </div>
                             </div>
-                            <span className="text-blue-500 font-extrabold tracking-wide">CUEVANA</span>
+                            <span className="text-blue-500 font-extrabold tracking-wide">CUEVANA by Aaron</span>
                         </Link>
 
                         {/* Desktop Navigation Links */}
