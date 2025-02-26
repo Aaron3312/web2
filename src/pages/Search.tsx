@@ -1,8 +1,8 @@
 // src/pages/Search.tsx
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import NavBar from '../components/NavBar';
-import MovieCard from '../components/MovieCard';
+import NavBar from '../Components/NavBar';
+import MovieCard from '../Components/MovieCard';
 import axios from 'axios';
 
 interface Movie {
