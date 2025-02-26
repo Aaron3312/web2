@@ -1,5 +1,5 @@
 // Home.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import MovieCard from '../Components/MovieCard';
 import NavBar from '../Components/NavBar';
@@ -19,6 +19,126 @@ interface Genre {
     id: number;
     name: string;
 }
+
+// Componente para el carrusel horizontal
+interface MovieCarouselProps {
+    title: string;
+    movies: Movie[];
+}
+
+const MovieCarousel = ({ title, movies }: MovieCarouselProps) => {
+    const carouselRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    // Función para deslizar hacia la izquierda
+    const scrollLeft1 = () => {
+        if (carouselRef.current) {
+            carouselRef.current.scrollTo({
+                left: carouselRef.current.scrollLeft - 300,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    // Función para deslizar hacia la derecha
+    const scrollRight = () => {
+        if (carouselRef.current) {
+            carouselRef.current.scrollTo({
+                left: carouselRef.current.scrollLeft + 300,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    // Gestionar eventos de mouse/touch para el deslizamiento manual
+    const handleMouseDown = (e: React.MouseEvent) => {
+        setIsDragging(true);
+        setStartX(e.pageX - (carouselRef.current?.offsetLeft || 0));
+        setScrollLeft(carouselRef.current?.scrollLeft || 0);
+    };
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setIsDragging(true);
+        setStartX(e.touches[0].pageX - (carouselRef.current?.offsetLeft || 0));
+        setScrollLeft(carouselRef.current?.scrollLeft || 0);
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        if (carouselRef.current) {
+            const x = e.pageX - (carouselRef.current.offsetLeft || 0);
+            const walk = (x - startX) * 2; // Velocidad de desplazamiento
+            carouselRef.current.scrollLeft = scrollLeft - walk;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isDragging) return;
+        if (carouselRef.current) {
+            const x = e.touches[0].pageX - (carouselRef.current.offsetLeft || 0);
+            const walk = (x - startX) * 2;
+            carouselRef.current.scrollLeft = scrollLeft - walk;
+        }
+    };
+
+    return (
+        <div className="mb-8">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">{title}</h2>
+                <div className="flex space-x-2">
+                    <button 
+                        onClick={scrollLeft1}
+                        className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full"
+                        aria-label="Desplazar a la izquierda"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <button 
+                        onClick={scrollRight}
+                        className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full"
+                        aria-label="Desplazar a la derecha"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div 
+                ref={carouselRef}
+                className="flex overflow-x-auto scrollbar-hide gap-4 pb-4"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onMouseMove={handleMouseMove}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleMouseUp}
+                onTouchMove={handleTouchMove}
+            >
+                {movies.map(movie => (
+                    <div key={movie.id} className="flex-shrink-0" style={{ width: '200px' }}>
+                        <MovieCard
+                            id={movie.id}
+                            title={movie.title}
+                            poster={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+                            rating={movie.vote_average}
+                        />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 export default function Home() {
     const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
@@ -118,20 +238,28 @@ export default function Home() {
         </div>
     );
 
+    const CarouselSkeleton = () => (
+        <div className="mb-8">
+            <div className="h-8 bg-gray-800 rounded w-64 mb-4 animate-pulse"></div>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+                {[...Array(5)].map((_, index) => (
+                    <div key={index} className="flex-shrink-0" style={{ width: '200px' }}>
+                        <MovieCardSkeleton />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
     if (isLoading) {
         return (
             <div className="flex flex-col min-h-screen bg-gray-900 text-white">
                 <NavBar />
                 <div className="h-96 w-full bg-gray-800 animate-pulse mb-6"></div>
                 <div className="container mx-auto px-4">
-                    <div className="mb-8">
-                        <div className="h-8 bg-gray-800 rounded w-64 mb-4 animate-pulse"></div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            {[...Array(10)].map((_, index) => (
-                                <MovieCardSkeleton key={index} />
-                            ))}
-                        </div>
-                    </div>
+                    <CarouselSkeleton />
+                    <CarouselSkeleton />
+                    <CarouselSkeleton />
                 </div>
             </div>
         );
@@ -196,12 +324,12 @@ export default function Home() {
                 {/* Género */}
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold mb-4">Explorar por Género</h2>
-                    <div className="flex flex-wrap gap-2 mb-6">
+                    <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         {genres.map(genre => (
                             <button
                                 key={genre.id}
                                 onClick={() => handleGenreSelect(genre.id)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex-shrink-0 ${
                                     selectedGenre === genre.id
                                         ? 'bg-red-600 text-white'
                                         : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -213,73 +341,33 @@ export default function Home() {
                     </div>
                     
                     {selectedGenre && genreMovies.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className="text-xl font-semibold mb-4">
-                                {genres.find(g => g.id === selectedGenre)?.name || 'Género'} Movies
-                            </h3>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                {genreMovies.slice(0, 10).map(movie => (
-                                    <MovieCard
-                                        key={movie.id}
-                                        id={movie.id}
-                                        title={movie.title}
-                                        poster={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                                        rating={movie.vote_average}
-                                    />
-                                ))}
-                            </div>
-                        </div>
+                        <MovieCarousel 
+                            title={`${genres.find(g => g.id === selectedGenre)?.name || 'Género'} Movies`}
+                            movies={genreMovies}
+                        />
                     )}
                 </div>
                 
                 {/* Trending Movies */}
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-4">Trending Hoy</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {trendingMovies.map(movie => (
-                            <MovieCard
-                                key={movie.id}
-                                id={movie.id}
-                                title={movie.title}
-                                poster={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                                rating={movie.vote_average}
-                            />
-                        ))}
-                    </div>
-                </div>
+                <MovieCarousel title="Trending Hoy" movies={trendingMovies} />
                 
                 {/* Popular Movies */}
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-4">Películas Populares</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {popularMovies.map(movie => (
-                            <MovieCard
-                                key={movie.id}
-                                id={movie.id}
-                                title={movie.title}
-                                poster={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                                rating={movie.vote_average}
-                            />
-                        ))}
-                    </div>
-                </div>
+                <MovieCarousel title="Películas Populares" movies={popularMovies} />
                 
                 {/* Top Rated Movies */}
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold mb-4">Mejor Valoradas</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {topRatedMovies.map(movie => (
-                            <MovieCard
-                                key={movie.id}
-                                id={movie.id}
-                                title={movie.title}
-                                poster={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                                rating={movie.vote_average}
-                            />
-                        ))}
-                    </div>
-                </div>
+                <MovieCarousel title="Mejor Valoradas" movies={topRatedMovies} />
             </div>
+            
+            {/* Agregar estilos CSS para ocultar la barra de desplazamiento en todos los navegadores */}
+            <style jsx global>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
             
             {/* Footer */}
             <footer className="bg-gray-950 py-8 mt-auto">
