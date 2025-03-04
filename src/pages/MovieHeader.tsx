@@ -1,13 +1,39 @@
 import { MovieDetail, Video } from './MovieDetails';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useContext, useEffect, useState, useRef } from 'react';
+import { AuthContext } from '../context/AuthContext';
+import { doc, updateDoc, getDoc, runTransaction } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 interface MovieHeaderProps {
     movie: MovieDetail;
     videos: Video[];
     handleFavoriteToggle: () => void;
     isFavorited: boolean;
+    activeTab: string;
+    setActiveTab: (tab: string) => void;
 }
 
-export default function MovieHeader({ movie, videos, handleFavoriteToggle, isFavorited }: MovieHeaderProps) {
+export default function MovieHeader({ 
+    movie, 
+    videos, 
+    handleFavoriteToggle, 
+    isFavorited,
+    activeTab,
+    setActiveTab
+}: MovieHeaderProps) {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { user } = useContext(AuthContext);
+    const [localIsFavorited, setLocalIsFavorited] = useState(isFavorited);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const processingRef = useRef(false);
+
+    // Efecto para sincronizar el estado local con las props
+    useEffect(() => {
+        setLocalIsFavorited(isFavorited);
+    }, [isFavorited]);
+
     const createTrailerModal = (videoKey: string) => {
         // Create modal with trailer
         const modal = document.createElement('div');
@@ -56,6 +82,82 @@ export default function MovieHeader({ movie, videos, handleFavoriteToggle, isFav
             currency: 'USD',
             maximumFractionDigits: 0
         }).format(amount);
+    };
+
+    // Nueva función para manejar el clic en el botón de favoritos usando transacciones
+    const handleFavoriteClick = async () => {
+        // Prevenir múltiples clicks
+        if (isProcessing || processingRef.current) return;
+        
+        // Comprobar si el usuario está autenticado
+        if (!user) {
+            // Si no está autenticado, redirigir a la página de login con redirect
+            navigate(`/login?redirect=${location.pathname}`);
+            return;
+        }
+
+        // Activar flag de procesamiento
+        setIsProcessing(true);
+        processingRef.current = true;
+
+        try {
+            const userRef = doc(db, "users", user.uid);
+            
+            // Usar transacción para garantizar operaciones atómicas
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                
+                if (!userDoc.exists()) {
+                    throw new Error("El documento del usuario no existe");
+                }
+                
+                const userData = userDoc.data();
+                const currentFavorites = userData.favorites || [];
+                
+                // Comprobar si la película ya está en favoritos
+                const movieIndex = currentFavorites.findIndex(fav => fav.id === movie.id);
+                const isAlreadyFavorited = movieIndex !== -1;
+                
+                // Crear la nueva lista de favoritos
+                let updatedFavorites;
+                
+                if (!isAlreadyFavorited) {
+                    // Añadir la película a favoritos
+                    const movieData = {
+                        id: movie.id,
+                        title: movie.title,
+                        poster_path: movie.poster_path,
+                        vote_average: movie.vote_average,
+                        release_date: movie.release_date,
+                        overview: movie.overview,
+                        backdrop_path: movie.backdrop_path
+                    };
+                    
+                    updatedFavorites = [...currentFavorites, movieData];
+                } else {
+                    // Eliminar la película de favoritos
+                    updatedFavorites = currentFavorites.filter(fav => fav.id !== movie.id);
+                }
+                
+                // Actualizar Firestore dentro de la transacción
+                transaction.update(userRef, { favorites: updatedFavorites });
+                
+                // Actualizar el estado local
+                setLocalIsFavorited(!isAlreadyFavorited);
+            });
+            
+            // Una vez completada la transacción, notificar al componente padre
+            // que hemos terminado correctamente
+            handleFavoriteToggle();
+            
+        } catch (error) {
+            console.error("Error al actualizar favoritos:", error);
+            // No revertir el estado local si hay error, ya que no se completó la operación
+        } finally {
+            // Desactivar flag de procesamiento
+            setIsProcessing(false);
+            processingRef.current = false;
+        }
     };
 
     return (
@@ -108,19 +210,22 @@ export default function MovieHeader({ movie, videos, handleFavoriteToggle, isFav
                                 </div>
                                 
                                 <div className="mt-4 space-y-3">
-                                    {/* Favorite button */}
+                                    {/* Favorite button - Usamos handleFavoriteClick con prevención de doble clic */}
                                     <button 
-                                        onClick={handleFavoriteToggle}
+                                        onClick={handleFavoriteClick}
+                                        disabled={isProcessing}
                                         className={`w-full py-3 rounded-lg flex items-center justify-center transition-colors font-medium text-sm ${
-                                            isFavorited 
+                                            localIsFavorited 
                                                 ? 'bg-yellow-500 hover:bg-yellow-600 text-gray-900' 
                                                 : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                        }`}
+                                        } ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     >
                                         <span className="mr-2 text-lg">
-                                            {isFavorited ? '⭐' : '☆'}
+                                            {localIsFavorited ? '⭐' : '☆'}
                                         </span>
-                                        {isFavorited ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+                                        {isProcessing 
+                                            ? 'Procesando...' 
+                                            : (localIsFavorited ? 'Quitar de favoritos' : 'Añadir a favoritos')}
                                     </button>
                                     
                                     {/* Watch trailer button - mobile only */}
@@ -206,6 +311,69 @@ export default function MovieHeader({ movie, videos, handleFavoriteToggle, isFav
                                             {genre.name}
                                         </span>
                                     ))}
+                                </div>
+                                
+                                {/* Tabs - Añadido en el header */}
+                                <div className="mt-8 border-b border-gray-700">
+                                    <div className="flex space-x-6 overflow-x-auto pb-1">
+                                        <button 
+                                            onClick={() => setActiveTab('overview')}
+                                            className={`py-3 font-medium relative ${
+                                                activeTab === 'overview' 
+                                                    ? 'text-white' 
+                                                    : 'text-gray-400 hover:text-gray-300'
+                                            }`}
+                                        >
+                                            Sinopsis
+                                            {activeTab === 'overview' && (
+                                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
+                                            )}
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => setActiveTab('cast')}
+                                            className={`py-3 font-medium relative ${
+                                                activeTab === 'cast' 
+                                                    ? 'text-white' 
+                                                    : 'text-gray-400 hover:text-gray-300'
+                                            }`}
+                                        >
+                                            Reparto
+                                            {activeTab === 'cast' && (
+                                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
+                                            )}
+                                        </button>
+                                        
+                                        {videos.length > 0 && (
+                                            <button 
+                                                onClick={() => setActiveTab('videos')}
+                                                className={`py-3 font-medium relative ${
+                                                    activeTab === 'videos' 
+                                                        ? 'text-white' 
+                                                        : 'text-gray-400 hover:text-gray-300'
+                                                }`}
+                                            >
+                                                Videos
+                                                {activeTab === 'videos' && (
+                                                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
+                                                )}
+                                            </button>
+                                        )}
+                                        
+                                        <button 
+                                            onClick={() => setActiveTab('reviews')}
+                                            className={`py-3 font-medium relative ${
+                                                activeTab === 'reviews' 
+                                                    ? 'text-white' 
+                                                    : 'text-gray-400 hover:text-gray-300'
+                                            }`}
+                                        >
+                                            Reseñas
+                                            {activeTab === 'reviews' && (
+                                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -8,10 +8,10 @@ interface MovieContentProps {
     cast: Cast[];
     videos: Video[];
     similarMovies: SimilarMovie[];
+    activeTab: string;
 }
 
-export default function MovieContent({ movie, cast, videos, similarMovies }: MovieContentProps) {
-    const [activeTab, setActiveTab] = useState('overview');
+export default function MovieContent({ movie, cast, videos, similarMovies, activeTab }: MovieContentProps) {
     const navigate = useNavigate();
 
     const createTrailerModal = (videoKey: string) => {
@@ -59,69 +59,6 @@ export default function MovieContent({ movie, cast, videos, similarMovies }: Mov
     return (
         <div className="container mx-auto p-4">
             <div className="bg-gray-800 rounded-lg p-6 md:p-8 mt-4">
-                {/* Tabs */}
-                <div className="mb-6 border-b border-gray-700">
-                    <div className="flex space-x-6 overflow-x-auto pb-1">
-                        <button 
-                            onClick={() => setActiveTab('overview')}
-                            className={`py-3 font-medium relative ${
-                                activeTab === 'overview' 
-                                    ? 'text-white' 
-                                    : 'text-gray-400 hover:text-gray-300'
-                            }`}
-                        >
-                            Sinopsis
-                            {activeTab === 'overview' && (
-                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
-                            )}
-                        </button>
-                        
-                        <button 
-                            onClick={() => setActiveTab('cast')}
-                            className={`py-3 font-medium relative ${
-                                activeTab === 'cast' 
-                                    ? 'text-white' 
-                                    : 'text-gray-400 hover:text-gray-300'
-                            }`}
-                        >
-                            Reparto
-                            {activeTab === 'cast' && (
-                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
-                            )}
-                        </button>
-                        
-                        {videos.length > 0 && (
-                            <button 
-                                onClick={() => setActiveTab('videos')}
-                                className={`py-3 font-medium relative ${
-                                    activeTab === 'videos' 
-                                        ? 'text-white' 
-                                        : 'text-gray-400 hover:text-gray-300'
-                                }`}
-                            >
-                                Videos
-                                {activeTab === 'videos' && (
-                                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
-                                )}
-                            </button>
-                        )}
-                        
-                        <button 
-                            onClick={() => setActiveTab('reviews')}
-                            className={`py-3 font-medium relative ${
-                                activeTab === 'reviews' 
-                                    ? 'text-white' 
-                                    : 'text-gray-400 hover:text-gray-300'
-                            }`}
-                        >
-                            Reseñas
-                            {activeTab === 'reviews' && (
-                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
-                            )}
-                        </button>
-                    </div>
-                </div>
-                
                 {/* Tab content */}
                 <div className="min-h-[200px]">
                     {/* Overview tab */}

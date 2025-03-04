@@ -53,6 +53,8 @@ export default function MovieDetails() {
     const [similarMovies, setSimilarMovies] = useState<SimilarMovie[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // Estado para controlar la pestaña activa
+    const [activeTab, setActiveTab] = useState('overview');
     
     // Get favorites functions from context
     const { addFavorite, removeFavorite, isFavorite } = useFavorites();
@@ -102,6 +104,8 @@ export default function MovieDetails() {
 
         if (id) {
             fetchMovieData();
+            // Restablecer la pestaña activa cuando cambia la película
+            setActiveTab('overview');
         }
     }, [id, TMDB_API_KEY]);
 
@@ -176,6 +180,8 @@ export default function MovieDetails() {
                 videos={videos} 
                 handleFavoriteToggle={handleFavoriteToggle}
                 isFavorited={isFavorited}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
             />
             
             <MovieContent 
@@ -183,6 +189,7 @@ export default function MovieDetails() {
                 cast={cast}
                 videos={videos}
                 similarMovies={similarMovies}
+                activeTab={activeTab}
             />
             
             {/* Back to top button */}
