@@ -1,12 +1,13 @@
-// src/pages/Dashboard.tsx
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import NavBar from "../Components/NavBar";
 import { useFavorites } from "../context/FavoritesContext";
 import MovieCard from "../Components/MovieCard";
+import BioForm from "../Components/BioForm";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
-  const { user } = useContext(AuthContext);
+  const { user, bio } = useContext(AuthContext);
   const { favorites } = useFavorites();
 
   return (
@@ -16,8 +17,9 @@ export default function Dashboard() {
         <div className="bg-gray-900 rounded-lg p-6 mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Bienvenido a tu Dashboard</h1>
           <p className="text-gray-300">
-            Hola <span className="font-bold">{user?.email}</span>, aquí puedes ver tus estadísticas y películas favoritas.
+            Hola <span className="font-bold">{user?.email}</span>, {bio ? `tu biografía: ${bio}` : "aún no has agregado una biografía."}
           </p>
+          <BioForm />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -64,12 +66,12 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-white">Tus Películas Favoritas</h2>
             {favorites.length > 0 && (
-              <button 
-                onClick={() => window.location.href = '/favorites'}
+              <Link 
+                to="/favorites"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
               >
                 Ver todas
-              </button>
+              </Link>
             )}
           </div>
 
@@ -87,6 +89,7 @@ export default function Dashboard() {
                   title={movie.title}
                   poster={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
                   rating={movie.vote_average}
+                  movie={movie} // Pasamos el objeto completo de la película
                 />
               ))}
             </div>

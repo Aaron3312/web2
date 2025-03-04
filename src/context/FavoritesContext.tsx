@@ -1,68 +1,72 @@
-// FavoritesContext.tsx
-import { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { createContext, useState, useContext, useEffect } from "react";
+import { db } from "../config/firebase";
+import { doc, updateDoc, onSnapshot, arrayUnion, arrayRemove } from "firebase/firestore";
+import { AuthContext } from "./AuthContext";
 
-interface Movie {
-    id: number;
-    title: string;
-    poster_path: string;
-    vote_average: number;
-}
+const FavoritesContext = createContext();
 
-interface FavoritesContextType {
-    favorites: Movie[];
-    addFavorite: (movie: Movie) => void;
-    removeFavorite: (id: number) => void;
-    isFavorite: (id: number) => boolean;
-}
+export function FavoritesProvider({ children }) {
+  const [favorites, setFavorites] = useState([]);
+  const { user } = useContext(AuthContext);
 
-const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
-
-export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
-    const [favorites, setFavorites] = useState<Movie[]>([]);
-
-    // Load favorites from localStorage on mount
-    useEffect(() => {
-        const storedFavorites = localStorage.getItem('movieFavorites');
-        if (storedFavorites) {
-            setFavorites(JSON.parse(storedFavorites));
-        }
-    }, []);
-
-    // Save favorites to localStorage whenever the favorites state changes
-    useEffect(() => {
-        localStorage.setItem('movieFavorites', JSON.stringify(favorites));
-    }, [favorites]);
-
-    const addFavorite = (movie: Movie) => {
-        setFavorites((prev) => {
-            // Check if movie is already in favorites
-            if (prev.some((fav) => fav.id === movie.id)) {
-                return prev;
-            }
-            return [...prev, movie];
-        });
-    };
-
-    const removeFavorite = (id: number) => {
-        setFavorites((prev) => prev.filter((movie) => movie.id !== id));
-    };
-
-    const isFavorite = (id: number) => {
-        return favorites.some((movie) => movie.id === id);
-    };
-
-    return (
-        <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, isFavorite }}>
-            {children}
-        </FavoritesContext.Provider>
-    );
-};
-
-// Custom hook for using the favorites context
-export const useFavorites = () => {
-    const context = useContext(FavoritesContext);
-    if (context === undefined) {
-        throw new Error('useFavorites must be used within a FavoritesProvider');
+  // Sincronizar favoritos con Firestore cuando cambia el usuario
+  useEffect(() => {
+    if (!user) {
+      setFavorites([]);
+      return;
     }
-    return context;
-};
+
+    const userDocRef = doc(db, "users", user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists() && snapshot.data().favorites) {
+        setFavorites(snapshot.data().favorites);
+      } else {
+        setFavorites([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  async function addFavorite(movie) {
+    // Verificar si la película ya está en favoritos para evitar duplicados
+    if (!favorites.some(fav => fav.id === movie.id) && user) {
+      const userDocRef = doc(db, "users", user.uid);
+      try {
+        await updateDoc(userDocRef, {
+          favorites: arrayUnion(movie)
+        });
+      } catch (error) {
+        console.error("Error al añadir a favoritos:", error);
+      }
+    }
+  }
+
+  async function removeFavorite(movieId) {
+    if (user) {
+      const movieToRemove = favorites.find(movie => movie.id === movieId);
+      if (movieToRemove) {
+        const userDocRef = doc(db, "users", user.uid);
+        try {
+          await updateDoc(userDocRef, {
+            favorites: arrayRemove(movieToRemove)
+          });
+        } catch (error) {
+          console.error("Error al eliminar de favoritos:", error);
+        }
+      }
+    }
+  }
+
+  const isFavorite = (movieId) => favorites.some(movie => movie.id === movieId);
+
+  return (
+    <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, isFavorite }}>
+      {children}
+    </FavoritesContext.Provider>
+  );
+}
+
+export function useFavorites() {
+  return useContext(FavoritesContext);
+}

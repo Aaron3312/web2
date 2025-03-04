@@ -1,5 +1,6 @@
 // Home.tsx
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import MovieCard from '../Components/MovieCard';
 import NavBar from '../Components/NavBar';
@@ -27,6 +28,7 @@ interface MovieCarouselProps {
 }
 
 const MovieCarousel = ({ title, movies }: MovieCarouselProps) => {
+    const navigate = useNavigate();
     const carouselRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
@@ -141,6 +143,7 @@ const MovieCarousel = ({ title, movies }: MovieCarouselProps) => {
 };
 
 export default function Home() {
+    const navigate = useNavigate();
     const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
     const [popularMovies, setPopularMovies] = useState<Movie[]>([]);
     const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
@@ -293,7 +296,7 @@ export default function Home() {
                                 </span>
                             </div>
                             <button 
-                                onClick={() => window.location.href = `/movie/${heroMovie.id}`}
+                                onClick={() => navigate(`/movie/${heroMovie.id}`)}
                                 className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105"
                             >
                                 Ver detalles

@@ -2,7 +2,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile';
+import Profile from './pages/profile';
 import MovieDetails from './pages/MovieDetails';
 import Favorites from './pages/Favorites';
 import Login from './pages/Login';
