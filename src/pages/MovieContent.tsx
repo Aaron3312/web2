@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MovieDetail, Cast, Video, SimilarMovie } from './MovieDetails';
+import { useNavigate } from 'react-router-dom';
 
 interface MovieContentProps {
     movie: MovieDetail;
@@ -10,6 +11,7 @@ interface MovieContentProps {
 
 export default function MovieContent({ movie, cast, videos, similarMovies }: MovieContentProps) {
     const [activeTab, setActiveTab] = useState('overview');
+    const navigate = useNavigate();
 
     const createTrailerModal = (videoKey: string) => {
         // Create modal with trailer
@@ -247,10 +249,10 @@ export default function MovieContent({ movie, cast, videos, similarMovies }: Mov
                     <h2 className="text-2xl font-bold mb-6">Películas similares</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         {similarMovies.map(similar => (
-                            <a 
+                            <div 
                                 key={similar.id}
-                                href={`/movie/${similar.id}`}
-                                className="bg-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform"
+                                onClick={() => navigate(`/movie/${similar.id}`)}
+                                className="bg-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"
                             >
                                 <div className="aspect-[2/3]">
                                     {similar.poster_path ? (
@@ -272,7 +274,7 @@ export default function MovieContent({ movie, cast, videos, similarMovies }: Mov
                                         <span>{similar.vote_average.toFixed(1)}</span>
                                     </div>
                                 </div>
-                            </a>
+                            </div>
                         ))}
                     </div>
                 </div>
