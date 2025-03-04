@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MovieDetail, Cast, Video, SimilarMovie } from './MovieDetails';
 import { useNavigate } from 'react-router-dom';
+import MovieReviews from './MovieReviews';
 
 interface MovieContentProps {
     movie: MovieDetail;
@@ -60,7 +61,7 @@ export default function MovieContent({ movie, cast, videos, similarMovies }: Mov
             <div className="bg-gray-800 rounded-lg p-6 md:p-8 mt-4">
                 {/* Tabs */}
                 <div className="mb-6 border-b border-gray-700">
-                    <div className="flex space-x-6">
+                    <div className="flex space-x-6 overflow-x-auto pb-1">
                         <button 
                             onClick={() => setActiveTab('overview')}
                             className={`py-3 font-medium relative ${
@@ -104,6 +105,20 @@ export default function MovieContent({ movie, cast, videos, similarMovies }: Mov
                                 )}
                             </button>
                         )}
+                        
+                        <button 
+                            onClick={() => setActiveTab('reviews')}
+                            className={`py-3 font-medium relative ${
+                                activeTab === 'reviews' 
+                                    ? 'text-white' 
+                                    : 'text-gray-400 hover:text-gray-300'
+                            }`}
+                        >
+                            Reseñas
+                            {activeTab === 'reviews' && (
+                                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></span>
+                            )}
+                        </button>
                     </div>
                 </div>
                 
@@ -238,6 +253,13 @@ export default function MovieContent({ movie, cast, videos, similarMovies }: Mov
                             ) : (
                                 <p className="text-gray-400">No hay videos disponibles.</p>
                             )}
+                        </div>
+                    )}
+                    
+                    {/* Reviews tab */}
+                    {activeTab === 'reviews' && (
+                        <div>
+                            <MovieReviews movieId={movie.id} />
                         </div>
                     )}
                 </div>
