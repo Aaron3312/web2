@@ -1,9 +1,9 @@
-// Home.tsx
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import MovieCard from '../Components/MovieCard';
 import NavBar from '../Components/NavBar';
+import HeroCarousel from '../Components/HeroCarousel'; // Importamos el nuevo componente
 
 const TMDB_API_KEY = '521b418e6b0c0227a624515e80c9288a';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
@@ -151,8 +151,6 @@ export default function Home() {
     const [selectedGenre, setSelectedGenre] = useState<number | null>(null);
     const [genreMovies, setGenreMovies] = useState<Movie[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeSlide, setActiveSlide] = useState(0);
-    const [heroMovie, setHeroMovie] = useState<Movie | null>(null);
 
     useEffect(() => {
         const fetchMoviesData = async () => {
@@ -163,11 +161,6 @@ export default function Home() {
                     `${TMDB_BASE_URL}/trending/movie/day?api_key=${TMDB_API_KEY}`
                 );
                 setTrendingMovies(trendingResponse.data.results);
-                
-                // Set hero movie from trending
-                if (trendingResponse.data.results.length > 0) {
-                    setHeroMovie(trendingResponse.data.results[Math.floor(Math.random() * 5)]);
-                }
 
                 // Fetch popular movies
                 const popularResponse = await axios.get(
@@ -195,17 +188,7 @@ export default function Home() {
         };
 
         fetchMoviesData();
-
-        // Set interval for hero section slideshow
-        const slideInterval = setInterval(() => {
-            if (trendingMovies.length > 0) {
-                setActiveSlide((prev) => (prev + 1) % Math.min(5, trendingMovies.length));
-                setHeroMovie(trendingMovies[activeSlide]);
-            }
-        }, 8000);
-
-        return () => clearInterval(slideInterval);
-    }, [activeSlide, trendingMovies.length]);
+    }, []);
 
     useEffect(() => {
         // Fetch movies by genre when a genre is selected
@@ -272,55 +255,9 @@ export default function Home() {
         <div className="flex flex-col min-h-screen bg-gray-900 text-white">
             <NavBar />
             
-            {/* Hero Section */}
-            {heroMovie && (
-                <div className="relative h-[60vh] mb-8">
-                    <div className="absolute inset-0">
-                        <img 
-                            src={`https://image.tmdb.org/t/p/original${heroMovie.backdrop_path}`} 
-                            alt={heroMovie.title} 
-                            className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-transparent"></div>
-                    </div>
-                    <div className="container mx-auto px-4 relative h-full flex flex-col justify-center">
-                        <div className="max-w-xl">
-                            <h1 className="text-4xl md:text-5xl font-bold mb-4">{heroMovie.title}</h1>
-                            <div className="flex items-center mb-6">
-                                <span className="inline-flex items-center bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-medium mr-2">
-                                    <span className="mr-1">⭐</span>
-                                    {heroMovie.vote_average.toFixed(1)}
-                                </span>
-                                <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                                    Trending
-                                </span>
-                            </div>
-                            <button 
-                                onClick={() => navigate(`/movie/${heroMovie.id}`)}
-                                className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105"
-                            >
-                                Ver detalles
-                            </button>
-                        </div>
-                        
-                        {/* Indicator dots */}
-                        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                            {trendingMovies.slice(0, 5).map((_, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => {
-                                        setActiveSlide(index);
-                                        setHeroMovie(trendingMovies[index]);
-                                    }}
-                                    className={`w-3 h-3 rounded-full transition-all ${
-                                        index === activeSlide ? 'bg-white scale-125' : 'bg-white/50'
-                                    }`}
-                                    aria-label={`Go to slide ${index + 1}`}
-                                ></button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+            {/* Hero Section con el nuevo componente */}
+            {trendingMovies.length > 0 && (
+                <HeroCarousel movies={trendingMovies.slice(0, 5)} autoPlayInterval={8000} />
             )}
             
             <div className="container mx-auto px-4">
