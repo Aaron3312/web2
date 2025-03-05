@@ -123,23 +123,23 @@ export default function Search() {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col min-h-screen bg-gray-900 text-white overflow-hidden">
             <NavBar />
             
-            <div className="container mx-auto px-4 py-8">
-                {/* Barra de búsqueda principal */}
-                <div className="mb-8">
-                    <form onSubmit={handleSearch} className="flex w-full max-w-3xl mx-auto">
+            <div className="w-full px-4 py-8">
+                {/* Barra de búsqueda principal - FIX: Se ha añadido flexibilidad para pantallas pequeñas */}
+                <div className="mb-8 w-full max-w-full">
+                    <form onSubmit={handleSearch} className="flex flex-col sm:flex-row w-full max-w-full sm:max-w-3xl mx-auto">
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Buscar películas, actores, directores..."
-                            className="w-full bg-gray-800 text-white border border-gray-700 rounded-l-lg px-5 py-3 focus:outline-none focus:border-blue-500"
+                            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg sm:rounded-l-lg sm:rounded-r-none px-3 sm:px-5 py-3 focus:outline-none focus:border-blue-500 mb-2 sm:mb-0"
                         />
                         <button
                             type="submit"
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-r-lg font-medium transition-colors"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-3 rounded-lg sm:rounded-l-none sm:rounded-r-lg font-medium transition-colors"
                             disabled={isLoading}
                         >
                             {isLoading ? 'Buscando...' : 'Buscar'}
@@ -285,10 +285,10 @@ export default function Search() {
                                     </>
                                 )}
                                 
-                                {/* Paginación para películas */}
+                                {/* Paginación para películas - FIX: Se ha mejorado el diseño para móviles */}
                                 {activeTab === 'movies' && totalPages > 1 && (
                                     <div className="flex justify-center mt-10">
-                                        <div className="flex items-center space-x-1">
+                                        <div className="flex flex-wrap justify-center items-center gap-2">
                                             <button
                                                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                                 disabled={currentPage === 1}
@@ -316,9 +316,10 @@ export default function Search() {
                                                 <span className="px-3 py-2 text-gray-500">...</span>
                                             )}
                                             
-                                            {/* Páginas cercanas */}
-                                            {[...Array(5)].map((_, i) => {
-                                                const pageNum = currentPage - 2 + i;
+                                            {/* Páginas cercanas - FIX: Se ha reducido la cantidad de páginas visibles en móviles */}
+                                            {[...Array(window.innerWidth < 640 ? 3 : 5)].map((_, i) => {
+                                                const offset = window.innerWidth < 640 ? 1 : 2;
+                                                const pageNum = currentPage - offset + i;
                                                 if (pageNum > 0 && pageNum <= totalPages) {
                                                     return (
                                                         <button
@@ -375,9 +376,9 @@ export default function Search() {
                         <p className="text-gray-400 mb-6 max-w-lg mx-auto">
                             Ingresa un término de búsqueda para encontrar películas, actores, directores y más.
                         </p>
-                        <div className="flex justify-center space-x-6 mt-10">
+                        <div className="flex flex-col sm:flex-row justify-center gap-6 mt-10">
                             <div 
-                                className="bg-gray-800 p-6 rounded-lg text-center cursor-pointer hover:bg-gray-750 transition-colors max-w-xs"
+                                className="bg-gray-800 p-6 rounded-lg text-center cursor-pointer hover:bg-gray-750 transition-colors max-w-xs w-full mx-auto sm:mx-0"
                                 onClick={() => navigate('/peliculas')}
                             >
                                 <div className="text-4xl mb-3">🎬</div>
@@ -387,7 +388,7 @@ export default function Search() {
                                 </p>
                             </div>
                             <div 
-                                className="bg-gray-800 p-6 rounded-lg text-center cursor-pointer hover:bg-gray-750 transition-colors max-w-xs"
+                                className="bg-gray-800 p-6 rounded-lg text-center cursor-pointer hover:bg-gray-750 transition-colors max-w-xs w-full mx-auto sm:mx-0"
                                 onClick={() => navigate('/series')}
                             >
                                 <div className="text-4xl mb-3">📺</div>
@@ -403,7 +404,7 @@ export default function Search() {
             
             {/* Footer */}
             <footer className="bg-gray-950 py-8 mt-auto">
-                <div className="container mx-auto px-4 text-center text-gray-400">
+                <div className="w-full px-4 text-center text-gray-400">
                     <p className="mb-2">Cuevana 2025 - Buscar</p>
                     <p>Este sitio no almacena ningún archivo en su servidor. Todo el contenido es proporcionado por terceros no afiliados.</p>
                 </div>

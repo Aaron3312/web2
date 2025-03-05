@@ -1,10 +1,11 @@
-// NavBar.tsx estilo Cuevana
+// NavBar.tsx - Versión mejorada
 import { Link, useNavigate } from "react-router-dom";
 import React, { useState, useContext, useEffect, useRef } from "react";
-import MovieCard from './MovieCard';
+// import MovieCard from './MovieCard';  // No se usa en este componente
 import { AuthContext } from "../context/AuthContext";
 import { useFavorites } from '../context/FavoritesContext';
 
+// Definición de tipos
 interface Movie {
     id: number;
     title: string;
@@ -12,9 +13,11 @@ interface Movie {
     vote_average?: number; // Hacemos que vote_average sea opcional
 }
 
+// Constantes
 const TMDB_API_KEY = '521b418e6b0c0227a624515e80c9288a';
 
 export default function NavBar() {
+    // Estados
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<Movie[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -23,12 +26,13 @@ export default function NavBar() {
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     
+    // Referencias y hooks
     const searchRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
     const { favorites } = useFavorites();
     const { user, logout } = useContext(AuthContext);
 
-    // Close search results when clicking outside
+    // Efectos
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -55,8 +59,19 @@ export default function NavBar() {
             document.removeEventListener("mousedown", handleClickOutside);
             window.removeEventListener('scroll', handleScroll);
         };
-    }, [searchRef]);
+    }, []);
 
+    // Funciones auxiliares
+    const formatRating = (rating?: number) => {
+        // Si el rating no existe o no es un número, devolvemos "N/A"
+        if (rating === undefined || rating === null || isNaN(rating)) {
+            return "N/A";
+        }
+        // Si el rating existe, lo formateamos a un decimal
+        return rating.toFixed(1);
+    };
+
+    // Manejadores de eventos
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!searchQuery.trim()) return;
@@ -102,21 +117,11 @@ export default function NavBar() {
         setIsMobileMenuOpen(false);
     }
 
-    // Función auxiliar para formatear ratings de manera segura
-    const formatRating = (rating?: number) => {
-        // Si el rating no existe o no es un número, devolvemos "N/A"
-        if (rating === undefined || rating === null || isNaN(rating)) {
-            return "N/A";
-        }
-        // Si el rating existe, lo formateamos a un decimal
-        return rating.toFixed(1);
-    };
-
     return (
         <div className="flex flex-col w-full">
             <nav className={`bg-gray-900 text-white w-full z-50 transition-all duration-300 ${scrolled ? 'shadow-lg py-2' : 'py-4'} ${isMobileMenuOpen ? 'relative' : 'sticky top-0'}`}>
                 <div className="container mx-auto px-4">
-                    {/* Top Navigation Bar */}
+                    {/* Barra de navegación principal */}
                     <div className="flex items-center justify-between">
                         {/* Logo de Cuevana estilo original */}
                         <Link to="/" className="text-2xl font-bold flex items-center">
@@ -129,7 +134,7 @@ export default function NavBar() {
                             <span className="text-blue-500 font-extrabold tracking-wide">CUEVANA by Aaron</span>
                         </Link>
 
-                        {/* Desktop Navigation Links */}
+                        {/* Enlaces de navegación para escritorio */}
                         <div className="hidden md:flex items-center space-x-6">
                             <Link to="/" className="text-gray-300 hover:text-white transition-colors">Inicio</Link>
                             <Link to="/peliculas" className="text-gray-300 hover:text-white transition-colors">Películas</Link>
@@ -140,9 +145,9 @@ export default function NavBar() {
                             )}
                         </div>
 
-                        {/* Right section: Search, Favorites, Auth */}
+                        {/* Sección derecha: Búsqueda, Favoritos, Autenticación */}
                         <div className="flex items-center space-x-4">
-                            {/* Search */}
+                            {/* Búsqueda */}
                             <div className="relative" ref={searchRef}>
                                 <form onSubmit={handleSearch} className="flex items-center">
                                     <input
@@ -163,7 +168,7 @@ export default function NavBar() {
                                     </button>
                                 </form>
 
-                                {/* Search results dropdown */}
+                                {/* Resultados de búsqueda */}
                                 {searchResults.length > 0 && (
                                     <div className="absolute mt-2 w-full md:w-80 right-0 bg-gray-900 rounded-lg shadow-lg border border-gray-800 z-50 max-h-96 overflow-y-auto">
                                         <div className="p-3 border-b border-gray-800 flex justify-between items-center">
@@ -235,7 +240,7 @@ export default function NavBar() {
                                 )}
                             </div>
 
-                            {/* Favorites */}
+                            {/* Favoritos */}
                             {user && (
                                 <Link 
                                     to="/favorites" 
@@ -250,7 +255,7 @@ export default function NavBar() {
                                 </Link>
                             )}
 
-                            {/* Auth Buttons - Desktop */}
+                            {/* Botones de autenticación - Escritorio */}
                             <div className="hidden md:block">
                                 {user ? (
                                     <div className="flex items-center space-x-3">
@@ -280,7 +285,7 @@ export default function NavBar() {
                                 )}
                             </div>
 
-                            {/* Mobile menu button */}
+                            {/* Botón del menú móvil */}
                             <button 
                                 className="md:hidden text-gray-300 hover:text-white"
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -298,7 +303,7 @@ export default function NavBar() {
                         </div>
                     </div>
 
-                    {/* Mobile Menu */}
+                    {/* Menú móvil */}
                     {isMobileMenuOpen && (
                         <div className="md:hidden mt-4 py-4 border-t border-gray-800 space-y-4">
                             <div className="space-y-2">
@@ -321,7 +326,7 @@ export default function NavBar() {
                                 )}
                             </div>
 
-                            {/* Auth buttons - Mobile */}
+                            {/* Botones de autenticación - Móvil */}
                             <div className="pt-2 border-t border-gray-800">
                                 {user ? (
                                     <div className="space-y-3">
