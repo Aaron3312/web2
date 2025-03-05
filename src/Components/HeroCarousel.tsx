@@ -28,14 +28,8 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
         const newIndex = (index + movies.length) % movies.length;
         setActiveSlide(newIndex);
         
-        // Mover el scroll si el contenedor existe
-        if (carouselRef.current) {
-            const slideWidth = carouselRef.current.offsetWidth;
-            carouselRef.current.scrollTo({
-                left: newIndex * slideWidth,
-                behavior: 'smooth'
-            });
-        }
+        // No usamos scrollTo para evitar que afecte al scroll de la página
+        // En su lugar, usamos el sistema de transformación CSS
     };
 
     // Funciones para navegar entre slides
@@ -52,6 +46,8 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
         setIsDragging(true);
         setStartX(e.touches[0].clientX);
         resetAutoPlay();
+        // Prevenir desplazamiento de página
+        e.preventDefault();
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -64,6 +60,8 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
         if (!isDragging) return;
         const currentX = e.touches[0].clientX;
         handleDrag(currentX);
+        // Prevenir desplazamiento de página
+        e.preventDefault();
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -74,8 +72,8 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
 
     const handleDrag = (currentX: number) => {
         const diff = startX - currentX;
-        // Si el arrastre es significativo
-        if (Math.abs(diff) > 50) {
+        // Si el arrastre es significativo - reducido para móviles para mejor sensibilidad
+        if (Math.abs(diff) > 30) {
             if (diff > 0) {
                 // Arrastre hacia la izquierda, ir al siguiente slide
                 nextSlide();
@@ -84,6 +82,14 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
                 prevSlide();
             }
             setIsDragging(false);
+            
+            // Prevenir el desplazamiento de la página
+            if (typeof Event === 'function' && 'preventDefault' in Event.prototype) {
+                const event = window.event;
+                if (event) {
+                    event.preventDefault();
+                }
+            }
         }
     };
 
@@ -122,27 +128,23 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
     // Manejar cambios de tamaño de ventana
     useEffect(() => {
         const handleResize = () => {
-            if (carouselRef.current) {
-                const slideWidth = carouselRef.current.offsetWidth;
-                carouselRef.current.scrollTo({
-                    left: activeSlide * slideWidth,
-                    behavior: 'auto'
-                });
-            }
+            // Solo actualizamos el estado para forzar un re-renderizado
+            // que aplicará la transformación correcta
+            setActiveSlide(prev => prev);
         };
 
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, [activeSlide]);
+    }, []);
 
     if (movies.length === 0) return null;
 
     return (
-        <div className="relative h-[60vh] mb-8 overflow-hidden">
+        <div className="relative h-[50vh] sm:h-[60vh] mb-4 sm:mb-8 overflow-hidden touch-none">
             {/* Contenedor principal del carrusel */}
             <div 
                 ref={carouselRef}
-                className="relative w-full h-full flex transition-transform duration-500 ease-out overflow-hidden"
+                className="relative w-full h-full flex overflow-hidden"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
@@ -154,10 +156,11 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
                 {movies.slice(0, 5).map((movie, index) => (
                     <div 
                         key={movie.id} 
-                        className="relative min-w-full h-full flex-shrink-0"
+                        className="absolute inset-0 w-full h-full transition-transform duration-500 ease-out"
                         style={{
                             transform: `translateX(${(index - activeSlide) * 100}%)`,
-                            transition: isDragging ? 'none' : 'transform 0.5s ease-out'
+                            transition: isDragging ? 'none' : 'transform 0.5s ease-out',
+                            zIndex: index === activeSlide ? 5 : 0
                         }}
                     >
                         <img 
@@ -167,22 +170,22 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
                         />
                         <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-transparent"></div>
                         
-                        {/* Contenido del slide */}
+                        {/* Contenido del slide - Optimizado para móvil */}
                         <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-8 md:px-16 lg:container lg:mx-auto">
                             <div className="max-w-xl">
-                                <h1 className="text-4xl md:text-5xl font-bold mb-4">{movie.title}</h1>
-                                <div className="flex items-center mb-6">
-                                    <span className="inline-flex items-center bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-medium mr-2">
+                                <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2 sm:mb-4 line-clamp-2">{movie.title}</h1>
+                                <div className="flex items-center mb-3 sm:mb-6">
+                                    <span className="inline-flex items-center bg-yellow-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium mr-2">
                                         <span className="mr-1">⭐</span>
                                         {movie.vote_average.toFixed(1)}
                                     </span>
-                                    <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                                    <span className="bg-blue-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
                                         Trending
                                     </span>
                                 </div>
                                 <button 
                                     onClick={() => navigate(`/movie/${movie.id}`)}
-                                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105"
+                                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 sm:py-3 sm:px-6 text-sm sm:text-base rounded-lg transition duration-300 transform hover:scale-105"
                                 >
                                     Ver detalles
                                 </button>
@@ -192,34 +195,34 @@ const HeroCarousel = ({ movies, autoPlayInterval = 8000 }: HeroCarouselProps) =>
                 ))}
             </div>
             
-            {/* Botones de navegación */}
+            {/* Botones de navegación - Más pequeños en móvil */}
             <button 
                 onClick={prevSlide}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors z-10"
+                className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 sm:p-3 rounded-full transition-colors z-10"
                 aria-label="Anterior película"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
             </button>
             
             <button 
                 onClick={nextSlide}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors z-10"
+                className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 sm:p-3 rounded-full transition-colors z-10"
                 aria-label="Siguiente película"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
             </button>
             
-            {/* Indicadores de slide */}
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+            {/* Indicadores de slide - Más pequeños y compactos en móvil */}
+            <div className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-1 sm:space-x-2 z-10">
                 {movies.slice(0, 5).map((_, index) => (
                     <button
                         key={index}
                         onClick={() => goToSlide(index)}
-                        className={`w-3 h-3 rounded-full transition-all ${
+                        className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all ${
                             index === activeSlide ? 'bg-white scale-125' : 'bg-white/50'
                         }`}
                         aria-label={`Ir al slide ${index + 1}`}
