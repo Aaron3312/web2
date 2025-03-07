@@ -8,8 +8,9 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Peliculas from './pages/Peliculas';
 import Series from './pages/Series';
+import SeriesDetails from './pages/SeriesDetails';
 import Estrenos from './pages/Estrenos';
-import Search from './pages/Search'; // Importar la nueva página de búsqueda
+import Search from './pages/Search';
 import ProtectedRoute from './Components/ProtectedRoute';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { AuthProvider } from './context/AuthContext';
@@ -45,7 +46,11 @@ export default function App() {
                             
                             {/* Rutas de contenido */}
                             <Route path="/peliculas" element={<Peliculas />} />
+                            
+                            {/* Rutas de series */}
                             <Route path="/series" element={<Series />} />
+                            <Route path="/series/:id" element={<SeriesDetails />} />
+                            
                             <Route path="/estrenos" element={<Estrenos />} />
                             
                             {/* Ruta de búsqueda */}

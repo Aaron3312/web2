@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useFavorites } from '../context/FavoritesContext';
 import NavBar from '../Components/NavBar';
 import MovieHeader from './MovieHeader';
-import MovieContent from './MovieContent';
 import axios from 'axios';
 
 export interface MovieDetail {
@@ -47,14 +46,14 @@ export interface SimilarMovie {
 
 export default function MovieDetails() {
     const { id } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [movie, setMovie] = useState<MovieDetail | null>(null);
     const [cast, setCast] = useState<Cast[]>([]);
     const [videos, setVideos] = useState<Video[]>([]);
     const [similarMovies, setSimilarMovies] = useState<SimilarMovie[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    // Estado para controlar la pestaña activa
-    const [activeTab, setActiveTab] = useState('overview');
     
     // Get favorites functions from context
     const { addFavorite, removeFavorite, isFavorite } = useFavorites();
@@ -104,8 +103,6 @@ export default function MovieDetails() {
 
         if (id) {
             fetchMovieData();
-            // Restablecer la pestaña activa cuando cambia la película
-            setActiveTab('overview');
         }
     }, [id, TMDB_API_KEY]);
 
@@ -177,20 +174,58 @@ export default function MovieDetails() {
             
             <MovieHeader 
                 movie={movie} 
-                videos={videos} 
+                videos={videos}
+                cast={cast}
+                similarMovies={similarMovies}
                 handleFavoriteToggle={handleFavoriteToggle}
                 isFavorited={isFavorited}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
             />
             
-            <MovieContent 
-                movie={movie}
-                cast={cast}
-                videos={videos}
-                similarMovies={similarMovies}
-                activeTab={activeTab}
-            />
+            {/* Similar Movies Section - Separado y abajo */}
+            {similarMovies.length > 0 && (
+                <div className="container mx-auto p-6 mt-8">
+                    <div className="bg-gray-800 rounded-xl p-6">
+                        <h2 className="text-2xl font-bold mb-6">Películas similares</h2>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            {similarMovies.map(movie => (
+                                <div 
+                                    key={movie.id} 
+                                    className="bg-gray-700 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                                    onClick={() => {
+                                        // Enfoque directo: usar la ruta específica con el prefijo conocido
+                                        navigate(`/movie/${movie.id}`);
+                                        
+                                        // Información de depuración
+                                        console.log("Navegando a película:", movie.id);
+                                        console.log("Ruta actual:", location.pathname);
+                                    }}
+                                >
+                                    <div className="aspect-[2/3] bg-gray-700">
+                                        {movie.poster_path ? (
+                                            <img
+                                                src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`}
+                                                alt={movie.title}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-600 text-gray-400">
+                                                <span>No imagen</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-3">
+                                        <div className="flex items-center mb-1">
+                                            <span className="text-yellow-500 mr-1">★</span>
+                                            <span className="text-sm">{movie.vote_average.toFixed(1)}</span>
+                                        </div>
+                                        <h3 className="font-medium text-sm text-white line-clamp-2">{movie.title}</h3>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {/* Back to top button */}
             <button 

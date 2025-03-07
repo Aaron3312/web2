@@ -1,26 +1,27 @@
-import { MovieDetail, Video } from './MovieDetails';
+import { MovieDetail, Video, Cast, SimilarMovie } from './MovieDetails';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useContext, useEffect, useState, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { doc, updateDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import MovieReviews from './MovieReviews';
 
 interface MovieHeaderProps {
     movie: MovieDetail;
     videos: Video[];
+    cast: Cast[];
+    similarMovies: SimilarMovie[];
     handleFavoriteToggle: () => void;
     isFavorited: boolean;
-    activeTab: string;
-    setActiveTab: (tab: string) => void;
 }
 
 export default function MovieHeader({ 
     movie, 
     videos, 
+    cast,
+    similarMovies,
     handleFavoriteToggle, 
-    isFavorited,
-    activeTab,
-    setActiveTab
+    isFavorited
 }: MovieHeaderProps) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -28,6 +29,7 @@ export default function MovieHeader({
     const [localIsFavorited, setLocalIsFavorited] = useState(isFavorited);
     const [isProcessing, setIsProcessing] = useState(false);
     const processingRef = useRef(false);
+    const [activeTab, setActiveTab] = useState('overview');
 
     // Efecto para sincronizar el estado local con las props
     useEffect(() => {
@@ -157,6 +159,113 @@ export default function MovieHeader({
             // Desactivar flag de procesamiento
             setIsProcessing(false);
             processingRef.current = false;
+        }
+    };
+
+    // Función para renderizar el contenido de la pestaña activa
+    const renderTabContent = () => {
+        switch (activeTab) {
+            case 'overview':
+                return (
+                    <div className="mt-6">
+                        <h2 className="text-2xl font-bold mb-4">Sinopsis</h2>
+                        <p className="text-gray-300 text-lg leading-relaxed mb-6">
+                            {movie.overview || 'No hay sinopsis disponible para esta película.'}
+                        </p>
+                        
+                        {/* Production Companies */}
+                        {movie.production_companies && movie.production_companies.length > 0 && (
+                            <div className="mt-8">
+                                <h3 className="text-xl font-medium mb-4">Compañías productoras</h3>
+                                <div className="flex flex-wrap gap-6">
+                                    {movie.production_companies.map(company => (
+                                        <div key={company.name} className="flex items-center bg-gray-800 rounded-lg p-3">
+                                            {company.logo_path ? (
+                                                <img 
+                                                    src={`https://image.tmdb.org/t/p/w200${company.logo_path}`}
+                                                    alt={company.name}
+                                                    className="h-10 object-contain mr-3"
+                                                />
+                                            ) : (
+                                                <div className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-full mr-3">
+                                                    <span>{company.name.substring(0, 1)}</span>
+                                                </div>
+                                            )}
+                                            <span>{company.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            case 'cast':
+                return (
+                    <div className="mt-6">
+                        <h2 className="text-2xl font-bold mb-6">Reparto principal</h2>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {cast.map(person => (
+                                <div key={person.id} className="bg-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform">
+                                    <div className="aspect-[2/3] bg-gray-700">
+                                        {person.profile_path ? (
+                                            <img
+                                                src={`https://image.tmdb.org/t/p/w300${person.profile_path}`}
+                                                alt={person.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-700 text-gray-500">
+                                                <span>No imagen</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-3">
+                                        <h3 className="font-medium text-white">{person.name}</h3>
+                                        <p className="text-sm text-gray-400">{person.character}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'videos':
+                return (
+                    <div className="mt-6">
+                        <h2 className="text-2xl font-bold mb-6">Videos</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {videos.map(video => (
+                                <div 
+                                    key={video.key} 
+                                    className="bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                                    onClick={() => createTrailerModal(video.key)}
+                                >
+                                    <div className="relative aspect-video">
+                                        <img
+                                            src={`https://img.youtube.com/vi/${video.key}/hqdefault.jpg`}
+                                            alt={video.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="bg-red-600 bg-opacity-80 rounded-full p-4">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-3">
+                                        <h3 className="font-medium text-white truncate">{video.name}</h3>
+                                        <p className="text-sm text-gray-400">{video.type}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'reviews':
+                return <MovieReviews movieId={movie.id} />;
+            default:
+                return null;
         }
     };
 
@@ -313,7 +422,7 @@ export default function MovieHeader({
                                     ))}
                                 </div>
                                 
-                                {/* Tabs - Añadido en el header */}
+                                {/* Tabs - Integrados directamente con su contenido */}
                                 <div className="mt-8 border-b border-gray-700">
                                     <div className="flex space-x-6 overflow-x-auto pb-1">
                                         <button 
@@ -375,6 +484,9 @@ export default function MovieHeader({
                                         </button>
                                     </div>
                                 </div>
+                                
+                                {/* Contenido de la pestaña activa - Integrado directamente debajo de los tabs */}
+                                {renderTabContent()}
                             </div>
                         </div>
                     </div>

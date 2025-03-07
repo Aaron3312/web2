@@ -1,6 +1,6 @@
 // src/pages/Series.tsx
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import NavBar from '../Components/NavBar';
 import axios from 'axios';
 
@@ -23,9 +23,17 @@ const TMDB_API_KEY = '521b418e6b0c0227a624515e80c9288a';
 // Componente SeriesCard adaptado para series
 function SeriesCard({ id, title, poster, rating }: { id: number; title: string; poster: string; rating: number }) {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleClick = () => {
+        // Enfoque más directo: usar enlaces relativos
+        // Esto debería funcionar independientemente del prefijo de ruta
         navigate(`/series/${id}`);
+        
+        // Como plan B, imprimimos información de depuración en la consola
+        console.log("Navegando a serie:", id);
+        console.log("Ruta actual:", location.pathname);
+        console.log("URL completa:", window.location.href);
     };
 
     // Fallback poster en caso de error

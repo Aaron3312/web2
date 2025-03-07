@@ -14,12 +14,26 @@ interface FavoriteMovie {
   backdrop_path?: string;
 }
 
+// Definir la estructura de una serie favorita
+interface FavoriteSeries {
+  id: number;
+  name: string;
+  poster_path: string;
+  vote_average: number;
+  first_air_date: string;
+  overview?: string;
+  backdrop_path?: string;
+}
+
+// Tipo que puede ser una película o una serie favorita
+type FavoriteItem = FavoriteMovie | FavoriteSeries;
+
 interface FavoritesContextType {
-  favorites: FavoriteMovie[];
+  favorites: FavoriteItem[];
   isLoading: boolean;
-  addToFavorites: (movie: FavoriteMovie) => Promise<void>;
-  removeFromFavorites: (movieId: number) => Promise<void>;
-  isFavorite: (movieId: number) => boolean;
+  addToFavorites: (item: FavoriteItem) => Promise<void>;
+  removeFromFavorites: (itemId: number) => Promise<void>;
+  isFavorite: (itemId: number) => boolean;
 }
 
 export const FavoritesContext = createContext<FavoritesContextType>({
@@ -33,7 +47,7 @@ export const FavoritesContext = createContext<FavoritesContextType>({
 export const useFavorites = () => useContext(FavoritesContext);
 
 export const FavoritesProvider = ({ children }: { children: React.ReactNode }) => {
-  const [favorites, setFavorites] = useState<FavoriteMovie[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useContext(AuthContext);
 
@@ -57,7 +71,7 @@ export const FavoritesProvider = ({ children }: { children: React.ReactNode }) =
         if (userData.favorites && Array.isArray(userData.favorites)) {
           // Eliminar posibles duplicados basados en ID
           const uniqueFavorites = Array.from(
-            new Map(userData.favorites.map((movie: FavoriteMovie) => [movie.id, movie]))
+            new Map(userData.favorites.map((item: FavoriteItem) => [item.id, item]))
             .values()
           );
           
@@ -77,13 +91,13 @@ export const FavoritesProvider = ({ children }: { children: React.ReactNode }) =
     return () => unsubscribe();
   }, [user]);
 
-  // Añadir película a favoritos
-  const addToFavorites = async (movie: FavoriteMovie) => {
+  // Añadir elemento a favoritos
+  const addToFavorites = async (item: FavoriteItem) => {
     if (!user) return;
     
-    // Verificar que la película no está ya en favoritos
-    if (isFavorite(movie.id)) {
-      console.log("La película ya está en favoritos");
+    // Verificar que el elemento no está ya en favoritos
+    if (isFavorite(item.id)) {
+      console.log("El elemento ya está en favoritos");
       return;
     }
     
@@ -92,7 +106,7 @@ export const FavoritesProvider = ({ children }: { children: React.ReactNode }) =
       
       // Actualizar Firestore
       await updateDoc(userRef, {
-        favorites: arrayUnion(movie)
+        favorites: arrayUnion(item)
       });
       
     } catch (error) {
@@ -100,20 +114,20 @@ export const FavoritesProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
-  // Eliminar película de favoritos
-  const removeFromFavorites = async (movieId: number) => {
+  // Eliminar elemento de favoritos
+  const removeFromFavorites = async (itemId: number) => {
     if (!user) return;
     
     try {
       const userRef = doc(db, 'users', user.uid);
       
-      // Encontrar la película exacta a eliminar
-      const movieToRemove = favorites.find(fav => fav.id === movieId);
+      // Encontrar el elemento exacto a eliminar
+      const itemToRemove = favorites.find(fav => fav.id === itemId);
       
-      if (movieToRemove) {
+      if (itemToRemove) {
         // Eliminar usando arrayRemove
         await updateDoc(userRef, {
-          favorites: arrayRemove(movieToRemove)
+          favorites: arrayRemove(itemToRemove)
         });
       }
       
@@ -122,9 +136,9 @@ export const FavoritesProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
-  // Verificar si una película está en favoritos
-  const isFavorite = (movieId: number): boolean => {
-    return favorites.some(movie => movie.id === movieId);
+  // Verificar si un elemento está en favoritos
+  const isFavorite = (itemId: number): boolean => {
+    return favorites.some(item => item.id === itemId);
   };
 
   return (
