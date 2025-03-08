@@ -2,14 +2,36 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main, master ] # Will trigger on push to main or master branch
-  workflow_dispatch: # Allows manual workflow runs from GitHub Actions tab
+    branches: [ main, master ]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Cypress tests
+        uses: cypress-io/github-action@v5
+        with:
+          build: npm run build
+          start: npm run dev
+          wait-on: 'http://localhost:5173'
+          
   build-and-deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -18,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18' # or your preferred Node.js version
+          node-version: '18'
 
       - name: Install dependencies
         run: npm ci
@@ -28,13 +50,11 @@ jobs:
         env:
           VITE_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
 
-      # If using React Router, create a 404.html that redirects to index.html
       - name: Create 404 page
         run: cp dist/index.html dist/404.html
 
-      # Deploy to GitHub Pages
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist # The folder the action should deploy
-          branch: gh-pages # The branch the action should deploy to
+          folder: dist
+          branch: gh-pages
