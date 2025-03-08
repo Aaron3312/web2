@@ -42,7 +42,7 @@ export default function Login() {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-white mb-2">Contraseña</label>
+              {/* <label htmlFor="password" className="block text-white mb-2">Contraseña</label> */}
               <input
                 id="password"
                 type="password"
