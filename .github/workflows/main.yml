@@ -13,22 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        echo: "Checking out the code"
+        run: echo "Checking out code"
         uses: actions/checkout@v3
 
       - name: Setup Node.js
-        echo: "Setting up Node.js"
         uses: actions/setup-node@v3
         with:
           node-version: "18"
 
       - name: Install dependencies
-        echo: "Installing dependencies"
         run: npm ci
 
       - name: Run Cypress tests
         uses: cypress-io/github-action@v5
-        echo: "Running Cypress tests"
         with:
           build: npm run build
           start: npm run dev
