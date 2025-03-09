@@ -33,7 +33,7 @@ jobs:
           start: npm run dev
           wait-on: "http://localhost:5173"
 
-  build-and-deploy:
+  build:
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -55,6 +55,22 @@ jobs:
 
       - name: Create 404 page
         run: cp dist/index.html dist/404.html
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-files
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-files
+          path: dist
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
