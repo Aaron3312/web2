@@ -13,8 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        run: echo "Checking out code"
         uses: actions/checkout@v3
+
+      - name: correct checkout
+        run: echo "Checking out the correct ref"
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
