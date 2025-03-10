@@ -100,7 +100,6 @@ jobs:
         with:
           folder: dist
           branch: gh-pages
-
   report:
     needs: build
     if: always()
@@ -148,18 +147,6 @@ jobs:
           path: dist
         continue-on-error: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-
-      - name: Install dependencies
-        run: |
-          npm install -g markdown-it
-          npm install -g chart.js
-          which jq || sudo apt-get update && sudo apt-get install -y jq
-        continue-on-error: true
-
       # Recopilar información del repositorio y CI/CD
       - name: Collect CI/CD and Repository Information
         id: collect-info
@@ -168,35 +155,27 @@ jobs:
           mkdir -p reports
 
           # Recopilar información del commit y workflow
-          echo "### Información del Despliegue" > reports/deployment-info.md
-          echo "- **Commit:** \`${{ github.sha }}\`" >> reports/deployment-info.md
-          echo "- **Rama:** \`${{ github.ref_name }}\`" >> reports/deployment-info.md
-          echo "- **Workflow:** \`${{ github.workflow }}\`" >> reports/deployment-info.md
-          echo "- **Iniciado por:** \`${{ github.actor }}\`" >> reports/deployment-info.md
-          echo "- **Fecha:** \`$(date)\`" >> reports/deployment-info.md
+          echo "# Información del Despliegue" > reports/cicd-report.md
+          echo "## Detalles del Despliegue" >> reports/cicd-report.md
+          echo "- **Commit:** \`${{ github.sha }}\`" >> reports/cicd-report.md
+          echo "- **Rama:** \`${{ github.ref_name }}\`" >> reports/cicd-report.md
+          echo "- **Workflow:** \`${{ github.workflow }}\`" >> reports/cicd-report.md
+          echo "- **Iniciado por:** \`${{ github.actor }}\`" >> reports/cicd-report.md
+          echo "- **Fecha:** \`$(date)\`" >> reports/cicd-report.md
 
           # Cambios en este despliegue
-          echo "### Cambios en este Despliegue" >> reports/deployment-info.md
-          git log -1 --pretty=format:"- **Autor:** %an%n- **Fecha:** %ad%n- **Mensaje:** %s%n%n**Descripción completa:**%n%b" >> reports/deployment-info.md
+          echo "## Cambios en este Despliegue" >> reports/cicd-report.md
+          git log -1 --pretty=format:"- **Autor:** %an%n- **Fecha:** %ad%n- **Mensaje:** %s%n%n**Descripción completa:**%n%b" >> reports/cicd-report.md
 
           # Historia reciente de cambios (últimos 5)
-          echo -e "\n### Historia Reciente (Últimos 5 Commits)" >> reports/deployment-info.md
-          git log -5 --pretty=format:"- %h - %s (%an, %ar)" >> reports/deployment-info.md
-        continue-on-error: true
+          echo -e "\n## Historia Reciente (Últimos 5 Commits)" >> reports/cicd-report.md
+          git log -5 --pretty=format:"- %h - %s (%an, %ar)" >> reports/cicd-report.md
 
-      # Generar un reporte de análisis de tests
-      - name: Generate Test Analysis Report
-        run: |
-          echo "Generando reporte de análisis de tests..."
-          mkdir -p reports
-
-          echo "# Análisis de Tests" > reports/test-report.md
-          echo "## Resumen de Ejecución de Tests" >> reports/test-report.md
+          # Agregar información de tests
+          echo -e "\n## Análisis de Tests" >> reports/cicd-report.md
 
           # Verificar si hay videos de Cypress (probar diferentes rutas posibles)
-          if [ -d "artifacts/cypress/videos" ]; then
-            VIDEOS_DIR="artifacts/cypress/videos"
-          elif [ -d "cypress/videos" ]; then
+          if [ -d "cypress/videos" ]; then
             VIDEOS_DIR="cypress/videos"
           else
             VIDEOS_DIR=""
@@ -205,14 +184,10 @@ jobs:
           if [ -n "$VIDEOS_DIR" ]; then
             # Contar archivos de video
             TEST_COUNT=$(find $VIDEOS_DIR -name "*.mp4" 2>/dev/null | wc -l)
-            
-            echo "### Tests Ejecutados" >> reports/test-report.md
-            echo "- **Total de tests:** $TEST_COUNT" >> reports/test-report.md
+            echo "- **Total de tests:** $TEST_COUNT" >> reports/cicd-report.md
             
             # Verificar la ruta de screenshots
-            if [ -d "artifacts/cypress/screenshots" ]; then
-              SCREENSHOTS_DIR="artifacts/cypress/screenshots"
-            elif [ -d "cypress/screenshots" ]; then
+            if [ -d "cypress/screenshots" ]; then
               SCREENSHOTS_DIR="cypress/screenshots"
             else
               SCREENSHOTS_DIR=""
@@ -225,79 +200,32 @@ jobs:
             fi
             
             if [ "$SCREENSHOT_COUNT" -gt 0 ]; then
-              echo "- **Tests fallidos:** $SCREENSHOT_COUNT (basado en capturas de pantalla)" >> reports/test-report.md
-              echo "- **Tasa de éxito:** $(( 100 - ($SCREENSHOT_COUNT * 100 / $TEST_COUNT) ))%" >> reports/test-report.md
+              echo "- **Tests fallidos:** $SCREENSHOT_COUNT (basado en capturas de pantalla)" >> reports/cicd-report.md
+              echo "- **Tasa de éxito:** $(( 100 - ($SCREENSHOT_COUNT * 100 / $TEST_COUNT) ))%" >> reports/cicd-report.md
               
-              echo "### Tests Fallidos" >> reports/test-report.md
-              echo "Las siguientes pruebas fallaron durante la ejecución:" >> reports/test-report.md
+              echo "### Tests Fallidos" >> reports/cicd-report.md
+              echo "Las siguientes pruebas fallaron durante la ejecución:" >> reports/cicd-report.md
               
               find $SCREENSHOTS_DIR -type f | sort | while read screenshot; do
                 # Extraer nombre del test de la ruta del archivo
                 TEST_NAME=$(echo "$screenshot" | sed -E 's|.*/([^/]+)/([^/]+)\.png|\1 - \2|g' | sed 's/_/ /g')
-                echo "- $TEST_NAME" >> reports/test-report.md
+                echo "- $TEST_NAME" >> reports/cicd-report.md
               done
             else
-              echo "- **Tests fallidos:** 0" >> reports/test-report.md
-              echo "- **Tasa de éxito:** 100%" >> reports/test-report.md
-              echo "### Resultado" >> reports/test-report.md
-              echo "✅ Todos los tests pasaron correctamente" >> reports/test-report.md
-            fi
-            
-            # Listar tests ejecutados
-            echo "### Lista de Tests Ejecutados" >> reports/test-report.md
-            if [ -n "$VIDEOS_DIR" ]; then
-              find $VIDEOS_DIR -name "*.mp4" | sort | while read video; do
-                # Extraer nombre del test de la ruta del archivo
-                TEST_NAME=$(echo "$video" | sed -E 's|.*/([^/]+)\.mp4|\1|g' | sed 's/_/ /g')
-                VIDEO_SIZE=$(stat -c%s "$video")
-                
-                # Determinar estado del test (estimado basado en tamaño del video)
-                if [ "$VIDEO_SIZE" -lt 1000 ]; then
-                  STATUS="❌ Posible Fallo"
-                else
-                  STATUS="✅ Completado"
-                fi
-                
-                echo "- **$TEST_NAME** - $STATUS" >> reports/test-report.md
-              done
-            else
-              echo "No se encontraron videos de tests para listar." >> reports/test-report.md
+              echo "- **Tests fallidos:** 0" >> reports/cicd-report.md
+              echo "- **Tasa de éxito:** 100%" >> reports/cicd-report.md
+              echo "### Resultado" >> reports/cicd-report.md
+              echo "✅ Todos los tests pasaron correctamente" >> reports/cicd-report.md
             fi
           else
-            echo "⚠️ No se encontraron resultados de tests para analizar." >> reports/test-report.md
+            echo "⚠️ No se encontraron resultados de tests para analizar." >> reports/cicd-report.md
           fi
-        continue-on-error: true
 
-      # Generar reporte de análisis de CI/CD
-      - name: Generate CI/CD Analysis
-        run: |
-          echo "# Análisis de CI/CD" > reports/cicd-report.md
-          echo "## Desempeño del Flujo de Trabajo" >> reports/cicd-report.md
-
-          # Analizar tiempo de ejecución
-          START_TIME="${{ github.event.repository.pushed_at }}"
-          CURRENT_TIME=$(date +%s)
-
-          if [ -n "$START_TIME" ]; then
-            START_SECONDS=$(date -d "$START_TIME" +%s 2>/dev/null || echo $CURRENT_TIME)
-            DURATION=$(( CURRENT_TIME - START_SECONDS ))
-            
-            if [ $DURATION -gt 0 ]; then
-              MINUTES=$(( DURATION / 60 ))
-              SECONDS=$(( DURATION % 60 ))
-              
-              echo "- **Tiempo total de ejecución:** $MINUTES minutos y $SECONDS segundos" >> reports/cicd-report.md
-            else
-              echo "- **Tiempo total de ejecución:** No disponible" >> reports/cicd-report.md
-            fi
-          else
-            echo "- **Tiempo total de ejecución:** No disponible" >> reports/cicd-report.md
-          fi
+          # Agregar información del build
+          echo -e "\n## Información del Build" >> reports/cicd-report.md
 
           # Verificar tamaño del build (probar diferentes rutas posibles)
-          if [ -d "artifacts/dist" ]; then
-            BUILD_DIR="artifacts/dist"
-          elif [ -d "dist" ]; then
+          if [ -d "dist" ]; then
             BUILD_DIR="dist"
           else
             BUILD_DIR=""
@@ -318,285 +246,77 @@ jobs:
           else
             echo "- **Datos del build:** No disponibles" >> reports/cicd-report.md
           fi
-
-          echo "## Recomendaciones para CI/CD" >> reports/cicd-report.md
-          echo "Basado en el análisis del flujo de trabajo actual:" >> reports/cicd-report.md
-          echo "" >> reports/cicd-report.md
-          echo "1. **Cachés**: El workflow utiliza correctamente el caché para Node.js y Cypress, lo que mejora significativamente los tiempos de ejecución." >> reports/cicd-report.md
-          echo "2. **Tests paralelos**: Considerar ejecutar los tests en paralelo para reducir tiempos de ejecución en proyectos más grandes." >> reports/cicd-report.md
-          echo "3. **Análisis de código**: Considerar añadir análisis estático de código (ESLint, Prettier) como parte del pipeline." >> reports/cicd-report.md
-          echo "4. **Seguridad**: Evaluar la integración de escaneos de seguridad para dependencias." >> reports/cicd-report.md
         continue-on-error: true
 
-      # Crear un reporte HTML combinado con mejor diseño
-      # Crear archivos fallback si no se generaron los reportes
-      - name: Create fallback reports
+      # Generación de análisis con Gemini
+      - name: Generate Gemini CI/CD Analysis
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          # Si no existe el archivo de información de despliegue, crear uno básico
-          if [ ! -f "reports/deployment-info.md" ]; then
-            echo "# Información del Despliegue" > reports/deployment-info.md
-            echo "- **Commit:** \`${{ github.sha }}\`" >> reports/deployment-info.md
-            echo "- **Rama:** \`${{ github.ref_name }}\`" >> reports/deployment-info.md
-            echo "- **Workflow:** \`${{ github.workflow }}\`" >> reports/deployment-info.md
-            echo "- **Fecha:** \`$(date)\`" >> reports/deployment-info.md
-          fi
+          echo "Generando análisis con Gemini AI..."
 
-          # Si no existe el archivo de análisis de tests, crear uno básico
-          if [ ! -f "reports/test-report.md" ]; then
-            echo "# Análisis de Tests" > reports/test-report.md
-            echo "No se pudieron analizar los tests automáticamente." >> reports/test-report.md
-            echo "- **Total de tests:** No disponible" >> reports/test-report.md
-            echo "- **Tests fallidos:** No disponible" >> reports/test-report.md
-          fi
-
-          # Si no existe el archivo de análisis de CI/CD, crear uno básico
-          if [ ! -f "reports/cicd-report.md" ]; then
-            echo "# Análisis de CI/CD" > reports/cicd-report.md
-            echo "## Desempeño del Flujo de Trabajo" >> reports/cicd-report.md
-            echo "- **Tiempo total de ejecución:** No disponible" >> reports/cicd-report.md
-            echo "- **Tamaño del build:** No disponible" >> reports/cicd-report.md
+          # Verificar que tenemos la clave API
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "⚠️ AVISO: No se encontró la clave API de Gemini. No se realizará análisis avanzado." >> reports/cicd-report.md
+          else
+            # Obtener el contenido del workflow
+            WORKFLOW_CONTENT=$(cat .github/workflows/*.yml)
             
-            echo "## Recomendaciones para CI/CD" >> reports/cicd-report.md
-            echo "1. **Cachés**: El workflow utiliza correctamente el caché para Node.js y Cypress, lo que mejora significativamente los tiempos de ejecución." >> reports/cicd-report.md
-            echo "2. **Tests paralelos**: Considerar ejecutar los tests en paralelo para reducir tiempos de ejecución en proyectos más grandes." >> reports/cicd-report.md
-            echo "3. **Análisis de código**: Considerar añadir análisis estático de código (ESLint, Prettier) como parte del pipeline." >> reports/cicd-report.md
-          fi
-
-          # Listar archivos generados para depuración
-          echo "=== Archivos de reporte generados ==="
-          ls -la reports/
-
-      - name: Create HTML Report
-        run: |
-          echo "Creando reporte HTML..."
-          mkdir -p reports
-          cat > reports/index.html << 'EOL'
-          <!DOCTYPE html>
-          <html lang="es">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Dashboard de CI/CD</title>
-            <style>
-              body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f8f9fa;
-                color: #333;
-                padding-top: 20px;
-              }
-              .dashboard-container {
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-              }
-              .dashboard-header {
-                background-color: #fff;
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                margin-bottom: 20px;
-              }
-              .dashboard-card {
-                background-color: #fff;
-                border-radius: 10px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                margin-bottom: 20px;
-                overflow: hidden;
-              }
-              .card-header {
-                background-color: #4361ee;
-                color: white;
-                padding: 15px 20px;
-                font-weight: 600;
-              }
-              .card-body {
-                padding: 20px;
-              }
-              .status-badge {
-                padding: 5px 10px;
-                border-radius: 20px;
-                font-size: 0.8rem;
-                font-weight: 600;
-                display: inline-block;
-              }
-              .status-success {
-                background-color: #d1fae5;
-                color: #065f46;
-              }
-              .status-warning {
-                background-color: #fef3c7;
-                color: #92400e;
-              }
-              .status-error {
-                background-color: #fee2e2;
-                color: #b91c1c;
-              }
-              .metrics-container {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 15px;
-                margin-bottom: 15px;
-              }
-              .metric-box {
-                flex: 1;
-                min-width: 120px;
-                background-color: #f8fafc;
-                padding: 15px;
-                border-radius: 8px;
-                text-align: center;
-                border: 1px solid #e2e8f0;
-              }
-              .metric-value {
-                font-size: 24px;
-                font-weight: 700;
-                margin: 5px 0;
-                color: #4361ee;
-              }
-              .metric-label {
-                font-size: 14px;
-                color: #64748b;
-              }
-              pre {
-                background-color: #f1f5f9;
-                padding: 15px;
-                border-radius: 5px;
-                overflow-x: auto;
-              }
-              .markdown-content h1 {
-                font-size: 1.8rem;
-                color: #1e40af;
-                margin-bottom: 15px;
-              }
-              .markdown-content h2 {
-                font-size: 1.5rem;
-                color: #1e3a8a;
-                margin: 25px 0 15px 0;
-                padding-bottom: 5px;
-                border-bottom: 1px solid #e2e8f0;
-              }
-              .markdown-content h3 {
-                font-size: 1.2rem;
-                color: #2563eb;
-                margin: 20px 0 10px 0;
-              }
-              .markdown-content ul {
-                padding-left: 20px;
-              }
-              .charts-container {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 20px;
-                margin-top: 20px;
-              }
-              .chart-container {
-                flex: 1;
-                min-width: 300px;
-                height: 300px;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="dashboard-container">
-              <div class="dashboard-header">
-                <div class="row align-items-center">
-                  <div class="col-md-6">
-                    <h1>CI/CD Dashboard</h1>
-                    <p class="text-muted">Análisis automatizado del despliegue</p>
-                  </div>
-                  <div class="col-md-6 text-md-end">
-                    <p><strong>Fecha de generación:</strong> <span id="generation-date">...</span></p>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="row">
-                <div class="col-md-8">
-                  <!-- Resumen del Build -->
-                  <div class="dashboard-card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                      <span>Resumen del Despliegue</span>
-                      <span id="build-status" class="status-badge">Verificando...</span>
-                    </div>
-                    <div class="card-body">
-                      <div class="metrics-container">
-                        <div class="metric-box">
-                          <div class="metric-value" id="test-count">-</div>
-                          <div class="metric-label">Tests Totales</div>
-                        </div>
-                        <div class="metric-box">
-                          <div class="metric-value" id="test-pass-rate">-</div>
-                          <div class="metric-label">Tasa de Éxito</div>
-                        </div>
-                        <div class="metric-box">
-                          <div class="metric-value" id="build-size">-</div>
-                          <div class="metric-label">Tamaño Build</div>
-                        </div>
-                        <div class="metric-box">
-                          <div class="metric-value" id="build-time">-</div>
-                          <div class="metric-label">Tiempo Total</div>
-                        </div>
-                      </div>
-                      
-                      <div id="deployment-info" class="markdown-content">
-                        Cargando información del despliegue...
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Análisis de CI/CD -->
-                  <div class="dashboard-card">
-                    <div class="card-header">Análisis y Recomendaciones CI/CD</div>
-                    <div class="card-body">
-                      <div id="cicd-content" class="markdown-content">
-                        Cargando análisis de CI/CD...
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="col-md-4">
-                  <!-- Información de Tests -->
-                  <div class="dashboard-card">
-                    <div class="card-header">Resultados de Tests</div>
-                    <div class="card-body">
-                      <div id="test-content" class="markdown-content">
-                        Cargando resultados de tests...
-                      </div>
-                      
-                      <!-- Gráficos se mostrarán aquí cuando estén disponibles -->
-                      <div id="chart-placeholder">
-                        Los gráficos no están disponibles en esta versión básica del reporte.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            # Crear un resumen para Gemini
+            BUILD_INFO=""
+            if [ -f "reports/cicd-report.md" ]; then
+              BUILD_INFO=$(cat reports/cicd-report.md)
+            fi
             
-            <script>
-              // Establecer fecha de generación
-              document.getElementById('generation-date').textContent = new Date().toLocaleString();
-              
-              // Mostrar contenido básico en las secciones
-              document.getElementById('build-status').textContent = 'Completado';
-              document.getElementById('test-count').textContent = '...';
-              document.getElementById('test-pass-rate').textContent = '...';
-              document.getElementById('build-size').textContent = '...';
-              document.getElementById('build-time').textContent = '...';
-              
-              // Cargar el contenido markdown directamente
-              document.getElementById('deployment-info').innerHTML = '<iframe src="deployment-info.md" width="100%" height="300" style="border:none;"></iframe>';
-              document.getElementById('test-content').innerHTML = '<iframe src="test-report.md" width="100%" height="400" style="border:none;"></iframe>';
-              document.getElementById('cicd-content').innerHTML = '<iframe src="cicd-report.md" width="100%" height="400" style="border:none;"></iframe>';
-            </script>
-          </body>
-          </html>
-          EOL
+            # Construir la consulta para Gemini
+            PROMPT="Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD. 
+            Evalúa lo siguiente:
+            1. La estructura general del workflow y si sigue buenas prácticas
+            2. La eficiencia de las etapas de build y test
+            3. La seguridad y confiabilidad del proceso de despliegue
+            4. Recomendaciones específicas para mejorar el pipeline
+            
+            Responde en formato Markdown con secciones claras. Enfócate exclusivamente en el proceso de CI/CD, no en el código fuente.
+            
+            Información adicional sobre el build:
+            $BUILD_INFO
+            
+            Workflow:
+            \`\`\`yaml
+            $WORKFLOW_CONTENT
+            \`\`\`"
+            
+            # Llamar a la API de Gemini
+            RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+              -H 'Content-Type: application/json' \
+              -X POST \
+              -d "{
+                \"contents\": [{
+                  \"parts\":[{
+                    \"text\": \"$PROMPT\"
+                  }]
+                }]
+              }")
+            
+            # Extraer el texto generado por Gemini
+            ANALYSIS=$(echo $RESPONSE | grep -o '"text": "[^"]*"' | sed 's/"text": "\(.*\)"/\1/' | sed 's/\\n/\n/g')
+            
+            if [ -n "$ANALYSIS" ]; then
+              echo -e "\n# Análisis de CI/CD por Gemini AI\n" >> reports/cicd-report.md
+              echo "$ANALYSIS" >> reports/cicd-report.md
+            else
+              echo -e "\n# Error en Análisis de Gemini AI\n" >> reports/cicd-report.md
+              echo "No se pudo obtener un análisis de Gemini AI. Respuesta de la API:" >> reports/cicd-report.md
+              echo "\`\`\`json" >> reports/cicd-report.md
+              echo "$RESPONSE" >> reports/cicd-report.md
+              echo "\`\`\`" >> reports/cicd-report.md
+            fi
+          fi
         continue-on-error: true
 
       - name: Upload Reports
         uses: actions/upload-artifact@v4
         with:
-          name: cicd-dashboard
+          name: cicd-report
           path: reports/
           if-no-files-found: warn
