@@ -111,8 +111,11 @@ jobs:
       # Instalamos herramientas para generar reportes
       - name: Install reporting tools
         run: |
-          # No instalamos ESLint
-          echo "Configurando entorno para reportes"
+          echo "Instalando herramientas necesarias para reportes"
+          # Asegurarnos de que curl está disponible
+          which curl || apt-get update && apt-get install -y curl
+          # Asegurarnos de que jq está disponible para procesar JSON
+          which jq || apt-get install -y jq
         continue-on-error: true
 
       # Generar un reporte de análisis de tests
@@ -151,12 +154,74 @@ jobs:
           fi
         continue-on-error: true
 
-      # Generar un reporte de calidad de código basado en estadísticas de archivos
-      - name: Generate Code Stats Report
+      # Generar un reporte de análisis de código usando Gemini API
+      - name: Generate Gemini Code Analysis
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           mkdir -p reports
-          echo "# Reporte de Estadísticas de Código" > reports/code-quality-report.md
+
+          echo "# Análisis de Código por IA" > reports/code-quality-report.md
           echo "## Generado el $(date)" >> reports/code-quality-report.md
+
+          # Verificar si la clave API está disponible
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "## Error: Clave API de Gemini no configurada" >> reports/code-quality-report.md
+            echo "Por favor, configura el secreto GEMINI_API_KEY en la configuración del repositorio." >> reports/code-quality-report.md
+            # Continuar con las métricas básicas
+          else
+            # Recolectar archivos de código para analizar (limitado a 5 archivos para evitar límites de API)
+            echo "## Archivos analizados" >> reports/code-quality-report.md
+            
+            # Crear un directorio temporal para los archivos a analizar
+            mkdir -p temp_analysis
+            
+            # Seleccionar hasta 5 archivos JavaScript/TypeScript principales para análisis
+            find src -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) -not -path "*/node_modules/*" | head -5 > file_list.txt
+            
+            # Por cada archivo seleccionado
+            cat file_list.txt | while read file_path; do
+              # Verificar que el archivo existe
+              if [ -f "$file_path" ]; then
+                echo "- Analizando: $file_path" >> reports/code-quality-report.md
+                
+                # Leer contenido del archivo
+                FILE_CONTENT=$(cat "$file_path")
+                
+                # Solicitud a la API de Gemini para análisis de código
+                API_RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+                  -H 'Content-Type: application/json' \
+                  -X POST \
+                  -d "{
+                    \"contents\": [{
+                      \"parts\":[{
+                        \"text\": \"Analiza este código y proporciona un reporte de calidad. Identifica problemas potenciales, mejores prácticas, complejidad, y sugerencias de mejora. Responde en formato markdown.\n\n\`\`\`\n$FILE_CONTENT\n\`\`\`\"
+                      }]
+                    }]
+                  }")
+                
+                # Extraer el texto generado de la respuesta usando jq si está disponible
+                if command -v jq &> /dev/null; then
+                  ANALYSIS=$(echo $API_RESPONSE | jq -r '.candidates[0].content.parts[0].text' 2>/dev/null)
+                  # Si falla jq, intentar con grep como respaldo
+                  if [ -z "$ANALYSIS" ]; then
+                    ANALYSIS=$(echo $API_RESPONSE | grep -o '"text": "[^"]*"' | sed 's/"text": "\(.*\)"/\1/' | sed 's/\\n/\n/g')
+                  fi
+                else
+                  ANALYSIS=$(echo $API_RESPONSE | grep -o '"text": "[^"]*"' | sed 's/"text": "\(.*\)"/\1/' | sed 's/\\n/\n/g')
+                fi
+                
+                # Escribir análisis al reporte
+                echo "### Análisis de $file_path" >> reports/code-quality-report.md
+                echo "$ANALYSIS" >> reports/code-quality-report.md
+                echo "" >> reports/code-quality-report.md
+                echo "---" >> reports/code-quality-report.md
+                
+                # Esperar un segundo para evitar límites de tasa de la API
+                sleep 1
+              fi
+            done
+          fi
 
           # Añadir métricas básicas de código
           echo "## Métricas de Código" >> reports/code-quality-report.md
@@ -165,11 +230,6 @@ jobs:
 
           echo "### Líneas de código (estimado)" >> reports/code-quality-report.md
           find src -type f -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | xargs wc -l 2>/dev/null || echo "No se pudieron contar líneas" >> reports/code-quality-report.md
-
-          # Añadir información sobre el tamaño del código
-          echo "### Tamaño de archivos" >> reports/code-quality-report.md
-          echo "Archivos más grandes (Top 10):" >> reports/code-quality-report.md
-          find src -type f | grep -v "node_modules" | xargs du -h 2>/dev/null | sort -hr | head -10 >> reports/code-quality-report.md
         continue-on-error: true
       # Crear un reporte HTML combinado
       - name: Create HTML Report
@@ -209,7 +269,7 @@ jobs:
               </div>
               
               <div class="report-card">
-                <h2>Estadísticas de Código</h2>
+                <h2>Análisis de Código por IA</h2>
                 <div id="code-content">Cargando...</div>
               </div>
             </div>
