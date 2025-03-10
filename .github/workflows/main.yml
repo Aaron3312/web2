@@ -83,6 +83,29 @@ jobs:
         with:
           name: build-files
           path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-files
+          path: dist
+      - name: Download reports
+        uses: actions/download-artifact@v4
+        with:
+          name: analysis-reports
+          path: dist/reports
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
+          branch: gh-pages
+
   report:
     needs: build
     if: always()
@@ -582,25 +605,3 @@ jobs:
           name: cicd-dashboard
           path: reports/
           if-no-files-found: warn
-  deploy:
-    needs: report
-    if: needs.build.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout 🛎️
-        uses: actions/checkout@v4
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-files
-          path: dist
-      - name: Download reports
-        uses: actions/download-artifact@v4
-        with:
-          name: analysis-reports
-          path: dist/reports
-      - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: dist
-          branch: gh-pages
