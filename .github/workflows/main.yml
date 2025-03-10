@@ -107,14 +107,14 @@ jobs:
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
-        
+
       - name: Setup working environment
         run: |
           echo "Preparando entorno de trabajo..."
           # Limpiar directorios anteriores para evitar conflictos
           rm -rf reports cypress/videos cypress/screenshots dist artifacts
           mkdir -p reports cypress/videos cypress/screenshots
-          
+
           # Mostrar información del sistema para depuración
           echo "=== Información del sistema ==="
           echo "Espacio disponible:"
@@ -125,35 +125,35 @@ jobs:
           npm --version
           echo "=== Directorio de trabajo ==="
           pwd
-        
+
       - name: Download test artifacts
         uses: actions/download-artifact@v4
         with:
           name: cypress-videos
           path: cypress/videos
         continue-on-error: true
-          
+
       - name: Download screenshots if available
         uses: actions/download-artifact@v4
         with:
           name: cypress-screenshots
           path: cypress/screenshots
         continue-on-error: true
-        
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-files
           path: dist
         continue-on-error: true
-        
+
       # Recopilar información del repositorio y CI/CD
       - name: Collect CI/CD and Repository Information
         id: collect-info
         run: |
           # Crear directorio para reportes
           mkdir -p reports
-          
+
           # Recopilar información del commit y workflow
           echo "# Información del Despliegue" > reports/cicd-report.md
           echo "## Detalles del Despliegue" >> reports/cicd-report.md
@@ -162,25 +162,25 @@ jobs:
           echo "- **Workflow:** \`${{ github.workflow }}\`" >> reports/cicd-report.md
           echo "- **Iniciado por:** \`${{ github.actor }}\`" >> reports/cicd-report.md
           echo "- **Fecha:** \`$(date)\`" >> reports/cicd-report.md
-          
+
           # Cambios en este despliegue
           echo "## Cambios en este Despliegue" >> reports/cicd-report.md
           git log -1 --pretty=format:"- **Autor:** %an%n- **Fecha:** %ad%n- **Mensaje:** %s%n%n**Descripción completa:**%n%b" >> reports/cicd-report.md
-          
+
           # Historia reciente de cambios (últimos 5)
           echo -e "\n## Historia Reciente (Últimos 5 Commits)" >> reports/cicd-report.md
           git log -5 --pretty=format:"- %h - %s (%an, %ar)" >> reports/cicd-report.md
-          
+
           # Agregar información de tests
           echo -e "\n## Análisis de Tests" >> reports/cicd-report.md
-          
+
           # Verificar si hay videos de Cypress (probar diferentes rutas posibles)
           if [ -d "cypress/videos" ]; then
             VIDEOS_DIR="cypress/videos"
           else
             VIDEOS_DIR=""
           fi
-          
+
           if [ -n "$VIDEOS_DIR" ]; then
             # Contar archivos de video
             TEST_COUNT=$(find $VIDEOS_DIR -name "*.mp4" 2>/dev/null | wc -l)
@@ -220,17 +220,17 @@ jobs:
           else
             echo "⚠️ No se encontraron resultados de tests para analizar." >> reports/cicd-report.md
           fi
-          
+
           # Agregar información del build
           echo -e "\n## Información del Build" >> reports/cicd-report.md
-          
+
           # Verificar tamaño del build (probar diferentes rutas posibles)
           if [ -d "dist" ]; then
             BUILD_DIR="dist"
           else
             BUILD_DIR=""
           fi
-          
+
           if [ -n "$BUILD_DIR" ]; then
             BUILD_SIZE=$(du -sh $BUILD_DIR | cut -f1)
             FILE_COUNT=$(find $BUILD_DIR -type f | wc -l)
@@ -247,107 +247,80 @@ jobs:
             echo "- **Datos del build:** No disponibles" >> reports/cicd-report.md
           fi
         continue-on-error: true
-      
+
       # Generación de análisis con Gemini
       - name: Generate Gemini CI/CD Analysis
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           echo "Generando análisis con Gemini AI..."
-          
+
           # Verificar que tenemos la clave API
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "⚠️ AVISO: No se encontró la clave API de Gemini. No se realizará análisis avanzado." >> reports/cicd-report.md
           else
-            echo "Creando archivo con el workflow para análisis..."
-            # Guardar el contenido del workflow en un archivo temporal
-            mkdir -p temp
-            cat .github/workflows/*.yml > temp/workflow.yml
+            # Obtener el contenido del workflow y escaparlo correctamente
+            WORKFLOW_CONTENT=$(cat .github/workflows/*.yml | jq -Rs .)
             
-            # Crear un archivo temporal con el prompt para Gemini
-            cat > temp/prompt.txt << EOL
-  Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD. 
-  Evalúa lo siguiente:
-  1. La estructura general del workflow y si sigue buenas prácticas
-  2. La eficiencia de las etapas de build y test
-  3. La seguridad y confiabilidad del proceso de despliegue
-  4. Recomendaciones específicas para mejorar el pipeline
-
-  Responde en formato Markdown con secciones claras. Enfócate exclusivamente en el proceso de CI/CD, no en el código fuente.
-
-  El workflow está configurado para hacer un despliegue a GitHub Pages, tiene procesos de build, test y report.
-  EOL
-
-            echo "Llamando a la API de Gemini..."
-            # Llamar a la API de Gemini con el archivo como entrada
+            # Crear un resumen para Gemini y escaparlo correctamente
+            BUILD_INFO=""
+            if [ -f "reports/cicd-report.md" ]; then
+              BUILD_INFO=$(cat reports/cicd-report.md | jq -Rs .)
+            fi
+            
+            # Crear un archivo JSON temporal para la solicitud
+            cat > gemini_request.json << EOF
+            {
+              "contents": [{
+                "parts":[{
+                  "text": "Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD. 
+                  Evalúa lo siguiente:
+                  1. La estructura general del workflow y si sigue buenas prácticas
+                  2. La eficiencia de las etapas de build y test
+                  3. La seguridad y confiabilidad del proceso de despliegue
+                  4. Recomendaciones específicas para mejorar el pipeline
+                  
+                  Responde en formato Markdown con secciones claras. Enfócate exclusivamente en el proceso de CI/CD, no en el código fuente.
+                  
+                  Información adicional sobre el build:
+                  $BUILD_INFO
+                  
+                  Workflow:
+                  \`\`\`yaml
+                  $WORKFLOW_CONTENT
+                  \`\`\`"
+                }]
+              }]
+            }
+            EOF
+            
+            # Llamar a la API de Gemini usando el archivo JSON
             RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
               -H 'Content-Type: application/json' \
               -X POST \
-              --data-binary @- << EOF
-  {
-    "contents": [{
-      "parts":[{
-        "text": "$(cat temp/prompt.txt)"
-      }]
-    }]
-  }
-  EOF
-  )
+              -d @gemini_request.json)
             
-            echo "Procesando respuesta de Gemini..."
-            # Guardar la respuesta en un archivo para depuración
-            echo "$RESPONSE" > temp/gemini_response.json
+            # Extraer el texto generado por Gemini
+            echo $RESPONSE > gemini_response.json
             
-            # Verificar si hay un error en la respuesta
-            if echo "$RESPONSE" | grep -q '"error":'; then
-              echo "⚠️ Se detectó un error en la respuesta de Gemini"
+            if jq -e '.contents[0].parts[0].text' gemini_response.json > /dev/null 2>&1; then
+              ANALYSIS=$(jq -r '.contents[0].parts[0].text' gemini_response.json)
+              
+              echo -e "\n# Análisis de CI/CD por Gemini AI\n" >> reports/cicd-report.md
+              echo "$ANALYSIS" >> reports/cicd-report.md
+            else
               echo -e "\n# Error en Análisis de Gemini AI\n" >> reports/cicd-report.md
               echo "No se pudo obtener un análisis de Gemini AI. Respuesta de la API:" >> reports/cicd-report.md
               echo "\`\`\`json" >> reports/cicd-report.md
-              echo "$RESPONSE" >> reports/cicd-report.md
+              cat gemini_response.json >> reports/cicd-report.md
               echo "\`\`\`" >> reports/cicd-report.md
-              
-              # Generar un análisis básico como fallback
-              echo -e "\n## Análisis Básico del CI/CD\n" >> reports/cicd-report.md
-              echo "No se pudo conectar con Gemini AI. A continuación se presenta un análisis básico:" >> reports/cicd-report.md
-              echo -e "\n### Estructura del Workflow\n" >> reports/cicd-report.md
-              echo "El workflow está configurado para desplegar a GitHub Pages y contiene los siguientes jobs principales:" >> reports/cicd-report.md
-              echo "- **test**: Ejecuta pruebas automatizadas con Cypress" >> reports/cicd-report.md
-              echo "- **build**: Compila el proyecto para producción" >> reports/cicd-report.md
-              echo "- **report**: Genera reportes de análisis" >> reports/cicd-report.md
-              echo "- **deploy**: Despliega el proyecto en GitHub Pages" >> reports/cicd-report.md
-              
-              echo -e "\n### Recomendaciones para Mejorar\n" >> reports/cicd-report.md
-              echo "1. **Cachés**: El workflow utiliza correctamente el caché para Node.js y Cypress, lo que mejora significativamente los tiempos de ejecución." >> reports/cicd-report.md
-              echo "2. **Tests paralelos**: Considerar ejecutar los tests en paralelo para reducir tiempos de ejecución en proyectos más grandes." >> reports/cicd-report.md
-              echo "3. **Análisis de código**: Considerar añadir análisis estático de código (ESLint, Prettier) como parte del pipeline." >> reports/cicd-report.md
-              echo "4. **Seguridad**: Añadir escaneos de seguridad para las dependencias y el código." >> reports/cicd-report.md
-            else
-              # Intentar extraer el texto de la respuesta de Gemini usando jq si está disponible
-              if command -v jq > /dev/null; then
-                echo "Extrayendo respuesta con jq..."
-                ANALYSIS=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' 2>/dev/null)
-              else
-                echo "jq no está disponible, usando grep para extraer la respuesta..."
-                ANALYSIS=$(echo "$RESPONSE" | grep -o '"text": "[^"]*"' | sed 's/"text": "\(.*\)"/\1/' | sed 's/\\n/\n/g')
-              fi
-              
-              if [ -n "$ANALYSIS" ]; then
-                echo "Análisis extraído correctamente"
-                echo -e "\n# Análisis de CI/CD por Gemini AI\n" >> reports/cicd-report.md
-                echo "$ANALYSIS" >> reports/cicd-report.md
-              else
-                echo "No se pudo extraer el análisis de la respuesta"
-                echo -e "\n# Error en Extracción de Análisis de Gemini AI\n" >> reports/cicd-report.md
-                echo "Se recibió una respuesta de Gemini AI pero no se pudo extraer el análisis. Respuesta de la API:" >> reports/cicd-report.md
-                echo "\`\`\`json" >> reports/cicd-report.md
-                echo "$RESPONSE" >> reports/cicd-report.md
-                echo "\`\`\`" >> reports/cicd-report.md
-              fi
             fi
+            
+            # Limpiar archivos temporales
+            rm -f gemini_request.json gemini_response.json
           fi
         continue-on-error: true
-      
+
       - name: Upload Reports
         uses: actions/upload-artifact@v4
         with:
