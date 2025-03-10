@@ -248,67 +248,121 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: Generate Gemini CI/CD Analysis
+      # Generación de análisis con OpenAI GPT-4o
+      - name: Generate OpenAI CI/CD Analysis
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
         run: |
-          echo "Generando análisis con Gemini AI..."
+          echo "Generando análisis con OpenAI GPT-4o..."
 
           # Verificar que tenemos la clave API
-          if [ -z "$GEMINI_API_KEY" ]; then
-            echo "⚠️ AVISO: No se encontró la clave API de Gemini. No se realizará análisis avanzado." >> reports/cicd-report.md
+          if [ -z "$OPENAI_KEY" ]; then
+            echo "⚠️ AVISO: No se encontró la clave API de OpenAI. No se realizará análisis avanzado." >> reports/cicd-report.md
           else
-            # Instalar jq si no está presente (debería estar en ubuntu-latest)
-            if ! command -v jq &> /dev/null; then
-              sudo apt-get update
-              sudo apt-get install -y jq
-            fi
+            # Crear archivo con el contenido del workflow para la solicitud
+            WORKFLOW_CONTENT=$(cat .github/workflows/*.yml)
+            echo "$WORKFLOW_CONTENT" > workflow_content.txt
             
-            # Obtener el contenido del workflow y escaparlo correctamente
-            WORKFLOW_CONTENT=$(cat .github/workflows/*.yml | jq -Rs .)
-            
-            # Crear un resumen para Gemini y escaparlo correctamente
+            # Crear archivo con la información del build
             BUILD_INFO=""
             if [ -f "reports/cicd-report.md" ]; then
-              BUILD_INFO=$(cat reports/cicd-report.md | jq -Rs .)
+              BUILD_INFO=$(cat reports/cicd-report.md)
+              echo "$BUILD_INFO" > build_info.txt
             fi
             
-            # Crear un archivo JSON temporal para la solicitud
-            cat > gemini_request.json << EOF
-            {
-              "contents": [{
-                "parts":[{
-                  "text": "Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD. Evalúa lo siguiente: 1. La estructura general del workflow y si sigue buenas prácticas 2. La eficiencia de las etapas de build y test 3. La seguridad y confiabilidad del proceso de despliegue 4. Recomendaciones específicas para mejorar el pipeline. Responde en formato Markdown con secciones claras. Enfócate exclusivamente en el proceso de CI/CD, no en el código fuente. Información adicional sobre el build: ${BUILD_INFO} Workflow: \`\`\`yaml ${WORKFLOW_CONTENT} \`\`\`"
-                }]
-              }]
-            }
-            EOF
+            # Construir el prompt para OpenAI
+            PROMPT="Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD. 
+            Evalúa lo siguiente:
+            1. La estructura general del workflow y si sigue buenas prácticas
+            2. La eficiencia de las etapas de build y test
+            3. La seguridad y confiabilidad del proceso de despliegue
+            4. Recomendaciones específicas para mejorar el pipeline
             
-            # Llamar a la API de Gemini usando el archivo JSON
-            RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
-              -H 'Content-Type: application/json' \
-              -X POST \
-              -d @gemini_request.json)
+            Responde en formato Markdown con secciones claras. Enfócate exclusivamente en el proceso de CI/CD, no en el código fuente.
             
-            # Guardar respuesta para debugging
-            echo "$RESPONSE" > gemini_response.json
+            Información adicional sobre el build está en el archivo build_info.txt.
+            El workflow está en el archivo workflow_content.txt."
             
-            # Extraer el texto generado por Gemini
-            if jq -e '.contents[0].parts[0].text' gemini_response.json > /dev/null 2>&1; then
-              ANALYSIS=$(jq -r '.contents[0].parts[0].text' gemini_response.json)
+            # Guardar el prompt para referencia
+            echo "$PROMPT" > prompt.txt
+            
+            # Llamar a la API de OpenAI con curl
+            curl -s https://api.openai.com/v1/chat/completions \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $OPENAI_KEY" \
+              -d "{
+                \"model\": \"gpt-4o\",
+                \"messages\": [
+                  {\"role\": \"system\", \"content\": \"Eres un experto en DevOps y CI/CD que analiza workflows de GitHub Actions y proporciona recomendaciones técnicas detalladas.\"},
+                  {\"role\": \"user\", \"content\": \"$PROMPT\"},
+                  {\"role\": \"user\", \"content\": {\"type\": \"text\", \"text\": \"Información del build:\"}},
+                  {\"role\": \"user\", \"content\": {\"type\": \"file_path\", \"file_path\": \"build_info.txt\"}},
+                  {\"role\": \"user\", \"content\": {\"type\": \"text\", \"text\": \"Contenido del workflow:\"}},
+                  {\"role\": \"user\", \"content\": {\"type\": \"file_path\", \"file_path\": \"workflow_content.txt\"}}
+                ],
+                \"temperature\": 0.2,
+                \"max_tokens\": 2000
+              }" > raw_response.json
+            
+            # Si necesitamos una versión más simple debido a errores de formato
+            if ! cat raw_response.json | jq -e '.choices[0].message.content' > /dev/null 2>&1; then
+              # Enfoque alternativo sin archivos adjuntos
+              echo "Intentando solicitud alternativa a OpenAI..."
               
-              echo -e "\n# Análisis de CI/CD por Gemini AI\n" >> reports/cicd-report.md
+              # Limitar tamaño del contenido para evitar problemas
+              WORKFLOW_CONTENT_SHORT=$(head -c 2500 workflow_content.txt)
+              BUILD_INFO_SHORT=$(head -c 2500 build_info.txt)
+              
+              PROMPT_SIMPLE="Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD.
+              Evalúa: estructura general, eficiencia, seguridad, y recomendaciones de mejora.
+              
+              Información del build:
+              $BUILD_INFO_SHORT
+              
+              Workflow:
+              $WORKFLOW_CONTENT_SHORT"
+              
+              # Escapar comillas dobles para JSON
+              PROMPT_JSON=$(echo "$PROMPT_SIMPLE" | sed 's/"/\\"/g')
+              
+              curl -s https://api.openai.com/v1/chat/completions \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $OPENAI_KEY" \
+                -d "{
+                  \"model\": \"gpt-4o\",
+                  \"messages\": [
+                    {\"role\": \"system\", \"content\": \"Eres un experto en DevOps y CI/CD.\"},
+                    {\"role\": \"user\", \"content\": \"$PROMPT_JSON\"}
+                  ],
+                  \"temperature\": 0.2,
+                  \"max_tokens\": 2000
+                }" > raw_response.json
+            fi
+            
+            # Extraer el contenido de la respuesta con jq
+            if cat raw_response.json | jq -e '.choices[0].message.content' > /dev/null 2>&1; then
+              ANALYSIS=$(cat raw_response.json | jq -r '.choices[0].message.content')
+              
+              echo -e "\n# Análisis de CI/CD por OpenAI GPT-4o\n" >> reports/cicd-report.md
               echo "$ANALYSIS" >> reports/cicd-report.md
             else
-              echo -e "\n# Error en Análisis de Gemini AI\n" >> reports/cicd-report.md
-              echo "No se pudo obtener un análisis de Gemini AI. Respuesta de la API:" >> reports/cicd-report.md
-              echo "\`\`\`json" >> reports/cicd-report.md
-              cat gemini_response.json >> reports/cicd-report.md
-              echo "\`\`\`" >> reports/cicd-report.md
+              # Si jq falla, intentar extraer con grep
+              ANALYSIS=$(cat raw_response.json | grep -o '"content":"[^"]*"' | sed 's/"content":"\(.*\)"/\1/' | sed 's/\\n/\n/g')
+              
+              if [ -n "$ANALYSIS" ]; then
+                echo -e "\n# Análisis de CI/CD por OpenAI GPT-4o\n" >> reports/cicd-report.md
+                echo "$ANALYSIS" >> reports/cicd-report.md
+              else
+                echo -e "\n# Error en Análisis de OpenAI GPT-4o\n" >> reports/cicd-report.md
+                echo "No se pudo obtener un análisis de OpenAI. Respuesta de la API:" >> reports/cicd-report.md
+                echo "\`\`\`json" >> reports/cicd-report.md
+                cat raw_response.json >> reports/cicd-report.md
+                echo "\`\`\`" >> reports/cicd-report.md
+              fi
             fi
             
             # Limpiar archivos temporales
-            rm -f gemini_request.json gemini_response.json
+            rm -f workflow_content.txt build_info.txt prompt.txt raw_response.json
           fi
         continue-on-error: true
 
