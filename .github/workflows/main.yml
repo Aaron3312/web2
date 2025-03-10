@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pagess
+name: Deploy to GitHub Pages
 on:
   push:
     branches: [main, master]
@@ -91,25 +91,43 @@ jobs:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
 
+      - name: Setup working environment
+        run: |
+          echo "Preparando entorno de trabajo..."
+          # Limpiar directorios anteriores para evitar conflictos
+          rm -rf reports cypress/videos cypress/screenshots dist artifacts
+          mkdir -p reports cypress/videos cypress/screenshots
+
+          # Mostrar información del sistema para depuración
+          echo "=== Información del sistema ==="
+          echo "Espacio disponible:"
+          df -h
+          echo "Versión de Node:"
+          node --version
+          echo "Versión de npm:"
+          npm --version
+          echo "=== Directorio de trabajo ==="
+          pwd
+
       - name: Download test artifacts
         uses: actions/download-artifact@v4
         with:
           name: cypress-videos
-          path: artifacts/cypress/videos
+          path: cypress/videos
         continue-on-error: true
 
       - name: Download screenshots if available
         uses: actions/download-artifact@v4
         with:
           name: cypress-screenshots
-          path: artifacts/cypress/screenshots
+          path: cypress/screenshots
         continue-on-error: true
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-files
-          path: artifacts/dist
+          path: dist
         continue-on-error: true
 
       - name: Setup Node.js
@@ -121,7 +139,7 @@ jobs:
         run: |
           npm install -g markdown-it
           npm install -g chart.js
-          which jq || apt-get update && apt-get install -y jq
+          which jq || sudo apt-get update && sudo apt-get install -y jq
         continue-on-error: true
 
       # Recopilar información del repositorio y CI/CD
@@ -151,21 +169,43 @@ jobs:
       # Generar un reporte de análisis de tests
       - name: Generate Test Analysis Report
         run: |
+          echo "Generando reporte de análisis de tests..."
           mkdir -p reports
 
           echo "# Análisis de Tests" > reports/test-report.md
           echo "## Resumen de Ejecución de Tests" >> reports/test-report.md
 
-          # Verificar si hay videos de Cypress
+          # Verificar si hay videos de Cypress (probar diferentes rutas posibles)
           if [ -d "artifacts/cypress/videos" ]; then
+            VIDEOS_DIR="artifacts/cypress/videos"
+          elif [ -d "cypress/videos" ]; then
+            VIDEOS_DIR="cypress/videos"
+          else
+            VIDEOS_DIR=""
+          fi
+
+          if [ -n "$VIDEOS_DIR" ]; then
             # Contar archivos de video
-            TEST_COUNT=$(find artifacts/cypress/videos -name "*.mp4" 2>/dev/null | wc -l)
+            TEST_COUNT=$(find $VIDEOS_DIR -name "*.mp4" 2>/dev/null | wc -l)
             
             echo "### Tests Ejecutados" >> reports/test-report.md
             echo "- **Total de tests:** $TEST_COUNT" >> reports/test-report.md
             
+            # Verificar la ruta de screenshots
+            if [ -d "artifacts/cypress/screenshots" ]; then
+              SCREENSHOTS_DIR="artifacts/cypress/screenshots"
+            elif [ -d "cypress/screenshots" ]; then
+              SCREENSHOTS_DIR="cypress/screenshots"
+            else
+              SCREENSHOTS_DIR=""
+            fi
+            
             # Verificar si hay capturas de pantalla de tests fallidos
-            SCREENSHOT_COUNT=$(find artifacts/cypress/screenshots -type f 2>/dev/null | wc -l)
+            SCREENSHOT_COUNT=0
+            if [ -n "$SCREENSHOTS_DIR" ]; then
+              SCREENSHOT_COUNT=$(find $SCREENSHOTS_DIR -type f 2>/dev/null | wc -l)
+            fi
+            
             if [ "$SCREENSHOT_COUNT" -gt 0 ]; then
               echo "- **Tests fallidos:** $SCREENSHOT_COUNT (basado en capturas de pantalla)" >> reports/test-report.md
               echo "- **Tasa de éxito:** $(( 100 - ($SCREENSHOT_COUNT * 100 / $TEST_COUNT) ))%" >> reports/test-report.md
@@ -173,7 +213,7 @@ jobs:
               echo "### Tests Fallidos" >> reports/test-report.md
               echo "Las siguientes pruebas fallaron durante la ejecución:" >> reports/test-report.md
               
-              find artifacts/cypress/screenshots -type f | sort | while read screenshot; do
+              find $SCREENSHOTS_DIR -type f | sort | while read screenshot; do
                 # Extraer nombre del test de la ruta del archivo
                 TEST_NAME=$(echo "$screenshot" | sed -E 's|.*/([^/]+)/([^/]+)\.png|\1 - \2|g' | sed 's/_/ /g')
                 echo "- $TEST_NAME" >> reports/test-report.md
@@ -187,20 +227,24 @@ jobs:
             
             # Listar tests ejecutados
             echo "### Lista de Tests Ejecutados" >> reports/test-report.md
-            find artifacts/cypress/videos -name "*.mp4" | sort | while read video; do
-              # Extraer nombre del test de la ruta del archivo
-              TEST_NAME=$(echo "$video" | sed -E 's|.*/([^/]+)\.mp4|\1|g' | sed 's/_/ /g')
-              VIDEO_SIZE=$(stat -c%s "$video")
-              
-              # Determinar estado del test (estimado basado en tamaño del video)
-              if [ "$VIDEO_SIZE" -lt 1000 ]; then
-                STATUS="❌ Posible Fallo"
-              else
-                STATUS="✅ Completado"
-              fi
-              
-              echo "- **$TEST_NAME** - $STATUS" >> reports/test-report.md
-            done
+            if [ -n "$VIDEOS_DIR" ]; then
+              find $VIDEOS_DIR -name "*.mp4" | sort | while read video; do
+                # Extraer nombre del test de la ruta del archivo
+                TEST_NAME=$(echo "$video" | sed -E 's|.*/([^/]+)\.mp4|\1|g' | sed 's/_/ /g')
+                VIDEO_SIZE=$(stat -c%s "$video")
+                
+                # Determinar estado del test (estimado basado en tamaño del video)
+                if [ "$VIDEO_SIZE" -lt 1000 ]; then
+                  STATUS="❌ Posible Fallo"
+                else
+                  STATUS="✅ Completado"
+                fi
+                
+                echo "- **$TEST_NAME** - $STATUS" >> reports/test-report.md
+              done
+            else
+              echo "No se encontraron videos de tests para listar." >> reports/test-report.md
+            fi
           else
             echo "⚠️ No se encontraron resultados de tests para analizar." >> reports/test-report.md
           fi
@@ -232,10 +276,18 @@ jobs:
             echo "- **Tiempo total de ejecución:** No disponible" >> reports/cicd-report.md
           fi
 
-          # Verificar tamaño del build
+          # Verificar tamaño del build (probar diferentes rutas posibles)
           if [ -d "artifacts/dist" ]; then
-            BUILD_SIZE=$(du -sh artifacts/dist | cut -f1)
-            FILE_COUNT=$(find artifacts/dist -type f | wc -l)
+            BUILD_DIR="artifacts/dist"
+          elif [ -d "dist" ]; then
+            BUILD_DIR="dist"
+          else
+            BUILD_DIR=""
+          fi
+
+          if [ -n "$BUILD_DIR" ]; then
+            BUILD_SIZE=$(du -sh $BUILD_DIR | cut -f1)
+            FILE_COUNT=$(find $BUILD_DIR -type f | wc -l)
             
             echo "- **Tamaño del build:** $BUILD_SIZE" >> reports/cicd-report.md
             echo "- **Archivos generados:** $FILE_COUNT" >> reports/cicd-report.md
@@ -243,7 +295,7 @@ jobs:
             # Mostrar tipos de archivos
             echo "### Tipos de Archivos en el Build" >> reports/cicd-report.md
             echo "\`\`\`" >> reports/cicd-report.md
-            find artifacts/dist -type f | grep -v "node_modules" | sort | awk -F. '{print $NF}' | sort | uniq -c | sort -nr >> reports/cicd-report.md
+            find $BUILD_DIR -type f | grep -v "node_modules" | sort | awk -F. '{print $NF}' | sort | uniq -c | sort -nr >> reports/cicd-report.md
             echo "\`\`\`" >> reports/cicd-report.md
           else
             echo "- **Datos del build:** No disponibles" >> reports/cicd-report.md
@@ -259,8 +311,46 @@ jobs:
         continue-on-error: true
 
       # Crear un reporte HTML combinado con mejor diseño
+      # Crear archivos fallback si no se generaron los reportes
+      - name: Create fallback reports
+        run: |
+          # Si no existe el archivo de información de despliegue, crear uno básico
+          if [ ! -f "reports/deployment-info.md" ]; then
+            echo "# Información del Despliegue" > reports/deployment-info.md
+            echo "- **Commit:** \`${{ github.sha }}\`" >> reports/deployment-info.md
+            echo "- **Rama:** \`${{ github.ref_name }}\`" >> reports/deployment-info.md
+            echo "- **Workflow:** \`${{ github.workflow }}\`" >> reports/deployment-info.md
+            echo "- **Fecha:** \`$(date)\`" >> reports/deployment-info.md
+          fi
+
+          # Si no existe el archivo de análisis de tests, crear uno básico
+          if [ ! -f "reports/test-report.md" ]; then
+            echo "# Análisis de Tests" > reports/test-report.md
+            echo "No se pudieron analizar los tests automáticamente." >> reports/test-report.md
+            echo "- **Total de tests:** No disponible" >> reports/test-report.md
+            echo "- **Tests fallidos:** No disponible" >> reports/test-report.md
+          fi
+
+          # Si no existe el archivo de análisis de CI/CD, crear uno básico
+          if [ ! -f "reports/cicd-report.md" ]; then
+            echo "# Análisis de CI/CD" > reports/cicd-report.md
+            echo "## Desempeño del Flujo de Trabajo" >> reports/cicd-report.md
+            echo "- **Tiempo total de ejecución:** No disponible" >> reports/cicd-report.md
+            echo "- **Tamaño del build:** No disponible" >> reports/cicd-report.md
+            
+            echo "## Recomendaciones para CI/CD" >> reports/cicd-report.md
+            echo "1. **Cachés**: El workflow utiliza correctamente el caché para Node.js y Cypress, lo que mejora significativamente los tiempos de ejecución." >> reports/cicd-report.md
+            echo "2. **Tests paralelos**: Considerar ejecutar los tests en paralelo para reducir tiempos de ejecución en proyectos más grandes." >> reports/cicd-report.md
+            echo "3. **Análisis de código**: Considerar añadir análisis estático de código (ESLint, Prettier) como parte del pipeline." >> reports/cicd-report.md
+          fi
+
+          # Listar archivos generados para depuración
+          echo "=== Archivos de reporte generados ==="
+          ls -la reports/
+
       - name: Create HTML Report
         run: |
+          echo "Creando reporte HTML..."
           mkdir -p reports
           cat > reports/index.html << 'EOL'
           <!DOCTYPE html>
@@ -269,8 +359,6 @@ jobs:
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Dashboard de CI/CD</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <style>
               body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -457,10 +545,9 @@ jobs:
                         Cargando resultados de tests...
                       </div>
                       
-                      <div class="charts-container">
-                        <div class="chart-container">
-                          <canvas id="testResultsChart"></canvas>
-                        </div>
+                      <!-- Gráficos se mostrarán aquí cuando estén disponibles -->
+                      <div id="chart-placeholder">
+                        Los gráficos no están disponibles en esta versión básica del reporte.
                       </div>
                     </div>
                   </div>
@@ -472,116 +559,17 @@ jobs:
               // Establecer fecha de generación
               document.getElementById('generation-date').textContent = new Date().toLocaleString();
               
-              // Función para cargar archivos Markdown
-              async function loadMarkdown(file, elementId) {
-                try {
-                  const response = await fetch(file);
-                  if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
-                  
-                  const text = await response.text();
-                  document.getElementById(elementId).innerHTML = convertMarkdown(text);
-                  
-                  // Extraer métricas después de cargar el contenido
-                  if (file === 'test-report.md') extractTestMetrics(text);
-                  if (file === 'cicd-report.md') extractCICDMetrics(text);
-                } catch (error) {
-                  console.error(`Error cargando ${file}:`, error);
-                  document.getElementById(elementId).innerHTML = `<div class="alert alert-warning">Error cargando reporte: ${error.message}</div>`;
-                }
-              }
+              // Mostrar contenido básico en las secciones
+              document.getElementById('build-status').textContent = 'Completado';
+              document.getElementById('test-count').textContent = '...';
+              document.getElementById('test-pass-rate').textContent = '...';
+              document.getElementById('build-size').textContent = '...';
+              document.getElementById('build-time').textContent = '...';
               
-              // Función simple para convertir markdown a HTML (muy básica)
-              function convertMarkdown(markdown) {
-                // Esta es una conversión muy simple, en producción usar una biblioteca
-                return markdown
-                  .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-                  .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-                  .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                  .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                  .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
-                  .replace(/- (.*$)/gm, '<li>$1</li>')
-                  .replace(/<li>(.*$)/gm, '<ul><li>$1</li></ul>')
-                  .replace(/<\/ul>\s*<ul>/g, '');
-              }
-              
-              // Extraer métricas de test-report.md
-              function extractTestMetrics(text) {
-                // Extraer conteo de tests
-                const testCountMatch = text.match(/Total de tests:\*\* (\d+)/);
-                if (testCountMatch) document.getElementById('test-count').textContent = testCountMatch[1];
-                
-                // Extraer tasa de éxito
-                const passRateMatch = text.match(/Tasa de éxito:\*\* (\d+)%/);
-                if (passRateMatch) {
-                  document.getElementById('test-pass-rate').textContent = passRateMatch[1] + '%';
-                  
-                  // Actualizar estado del build basado en la tasa de éxito
-                  const passRate = parseInt(passRateMatch[1]);
-                  const buildStatus = document.getElementById('build-status');
-                  
-                  if (passRate === 100) {
-                    buildStatus.textContent = 'Exitoso';
-                    buildStatus.className = 'status-badge status-success';
-                  } else if (passRate >= 80) {
-                    buildStatus.textContent = 'Advertencias';
-                    buildStatus.className = 'status-badge status-warning';
-                  } else {
-                    buildStatus.textContent = 'Con Errores';
-                    buildStatus.className = 'status-badge status-error';
-                  }
-                  
-                  // Crear gráfico de resultados de tests
-                  const passed = parseInt(testCountMatch ? testCountMatch[1] : 0) * passRate / 100;
-                  const failed = parseInt(testCountMatch ? testCountMatch[1] : 0) - passed;
-                  
-                  const ctx = document.getElementById('testResultsChart').getContext('2d');
-                  new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                      labels: ['Pasaron', 'Fallaron'],
-                      datasets: [{
-                        data: [passed, failed],
-                        backgroundColor: ['#10b981', '#ef4444'],
-                        borderWidth: 0
-                      }]
-                    },
-                    options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          position: 'bottom'
-                        },
-                        title: {
-                          display: true,
-                          text: 'Resultados de Tests'
-                        }
-                      }
-                    }
-                  });
-                }
-              }
-              
-              // Extraer métricas del reporte de CI/CD
-              function extractCICDMetrics(text) {
-                // Extraer tiempo de build
-                const buildTimeMatch = text.match(/Tiempo total de ejecución:\*\* (\d+) minutos y (\d+) segundos/);
-                if (buildTimeMatch) {
-                  document.getElementById('build-time').textContent = `${buildTimeMatch[1]}m ${buildTimeMatch[2]}s`;
-                }
-                
-                // Extraer tamaño del build
-                const buildSizeMatch = text.match(/Tamaño del build:\*\* ([\d\.]+\w+)/);
-                if (buildSizeMatch) {
-                  document.getElementById('build-size').textContent = buildSizeMatch[1];
-                }
-              }
-              
-              // Cargar todos los reportes
-              loadMarkdown('deployment-info.md', 'deployment-info');
-              loadMarkdown('test-report.md', 'test-content');
-              loadMarkdown('cicd-report.md', 'cicd-content');
+              // Cargar el contenido markdown directamente
+              document.getElementById('deployment-info').innerHTML = '<iframe src="deployment-info.md" width="100%" height="300" style="border:none;"></iframe>';
+              document.getElementById('test-content').innerHTML = '<iframe src="test-report.md" width="100%" height="400" style="border:none;"></iframe>';
+              document.getElementById('cicd-content').innerHTML = '<iframe src="cicd-report.md" width="100%" height="400" style="border:none;"></iframe>';
             </script>
           </body>
           </html>
