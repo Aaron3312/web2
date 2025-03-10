@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reporte de Análisis Automatizado</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    .report-container { display: flex; flex-wrap: wrap; gap: 20px; }
+    .report-card { flex: 1; min-width: 300px; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+    .report-card h2 { margin-top: 0; color: #0066cc; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    .summary { background: #f0f7ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    .timestamp { color: #666; font-style: italic; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>Reporte de Análisis Automatizado</h1>
+  <div class="timestamp">Generado el Mon Mar 10 08:24:28 UTC 2025</div>
+  
+  <div class="summary">
+    <h2>Resumen Ejecutivo</h2>
+    <p>Este reporte combina análisis de pruebas automatizadas y calidad de código para proporcionar una visión general del estado del proyecto.</p>
+  </div>
+  
+  <div class="report-container">
+    <div class="report-card">
+      <h2>Análisis de Tests</h2>
+      <div id="test-content">Cargando...</div>
+    </div>
+    
+    <div class="report-card">
+      <h2>Calidad de Código</h2>
+      <div id="code-content">Cargando...</div>
+    </div>
+  </div>
+  
+  <script>
+    // Cargar contenido de markdown
+    async function loadMarkdown(file, elementId) {
+      try {
+        const response = await fetch(file);
+        const text = await response.text();
+        document.getElementById(elementId).innerHTML = text;
+      } catch (error) {
+        document.getElementById(elementId).innerHTML = 'Error cargando reporte: ' + error;
+      }
+    }
+    
+    // Cargar reportes
+    loadMarkdown('test-report.md', 'test-content');
+    loadMarkdown('code-quality-report.md', 'code-content');
+  </script>
+</body>
+</html>
