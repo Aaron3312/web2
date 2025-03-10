@@ -28,12 +28,10 @@ describe("template spec", () => {
 		cy.get(".mt-10 > .flex > :nth-child(3)").click();
 		cy.get(":nth-child(17) > .bg-black > div.text-white > .mt-2").click();
 		cy.get(".border-b > .flex > :nth-child(2)").click();
-		cy.get(".mt-8 > .flex > :nth-child(3)").click();
+		cy.get(".mt-8 > .flex > :nth-child(3)").click({ multiple: true });
 		cy.get(":nth-child(2) > .aspect-\\[2\\/3\\] > .w-full").click();
 		cy.get(".border-b > .flex > :nth-child(2)").click();
-		cy.get(".mt-8 > .flex > :nth-child(1)").click();
-		cy.get(".mt-8 > .flex > :nth-child(3)").click();
-		cy.get(":nth-child(2) > .aspect-\\[2\\/3\\] > .w-full").click();
+		cy.get(".mt-8 > .flex > :nth-child(1)").click({ multiple: true });
 		/* ==== End Cypress Studio ==== */
 	});
 });
