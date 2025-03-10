@@ -248,7 +248,6 @@ jobs:
           fi
         continue-on-error: true
 
-      # Generación de análisis con Gemini
       - name: Generate Gemini CI/CD Analysis
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -259,6 +258,12 @@ jobs:
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "⚠️ AVISO: No se encontró la clave API de Gemini. No se realizará análisis avanzado." >> reports/cicd-report.md
           else
+            # Instalar jq si no está presente (debería estar en ubuntu-latest)
+            if ! command -v jq &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y jq
+            fi
+            
             # Obtener el contenido del workflow y escaparlo correctamente
             WORKFLOW_CONTENT=$(cat .github/workflows/*.yml | jq -Rs .)
             
@@ -273,22 +278,7 @@ jobs:
             {
               "contents": [{
                 "parts":[{
-                  "text": "Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD. 
-                  Evalúa lo siguiente:
-                  1. La estructura general del workflow y si sigue buenas prácticas
-                  2. La eficiencia de las etapas de build y test
-                  3. La seguridad y confiabilidad del proceso de despliegue
-                  4. Recomendaciones específicas para mejorar el pipeline
-                  
-                  Responde en formato Markdown con secciones claras. Enfócate exclusivamente en el proceso de CI/CD, no en el código fuente.
-                  
-                  Información adicional sobre el build:
-                  $BUILD_INFO
-                  
-                  Workflow:
-                  \`\`\`yaml
-                  $WORKFLOW_CONTENT
-                  \`\`\`"
+                  "text": "Analiza este workflow de GitHub Actions y proporciona un informe detallado sobre el pipeline de CI/CD. Evalúa lo siguiente: 1. La estructura general del workflow y si sigue buenas prácticas 2. La eficiencia de las etapas de build y test 3. La seguridad y confiabilidad del proceso de despliegue 4. Recomendaciones específicas para mejorar el pipeline. Responde en formato Markdown con secciones claras. Enfócate exclusivamente en el proceso de CI/CD, no en el código fuente. Información adicional sobre el build: ${BUILD_INFO} Workflow: \`\`\`yaml ${WORKFLOW_CONTENT} \`\`\`"
                 }]
               }]
             }
@@ -300,9 +290,10 @@ jobs:
               -X POST \
               -d @gemini_request.json)
             
-            # Extraer el texto generado por Gemini
-            echo $RESPONSE > gemini_response.json
+            # Guardar respuesta para debugging
+            echo "$RESPONSE" > gemini_response.json
             
+            # Extraer el texto generado por Gemini
             if jq -e '.contents[0].parts[0].text' gemini_response.json > /dev/null 2>&1; then
               ANALYSIS=$(jq -r '.contents[0].parts[0].text' gemini_response.json)
               
