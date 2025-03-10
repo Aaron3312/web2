@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "cypress run",
+    "test:open": "cypress open",
+    "test:ci": "cypress run --headless",
+    "start": "vite preview"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -19,6 +23,7 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.5",
     "tailwindcss": "^4.0.6"
+
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
