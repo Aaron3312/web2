@@ -98,3 +98,51 @@ jobs:
         with:
           folder: dist
           branch: gh-pages
+      - name: Generate AI Deployment Report
+        id: ai-report
+        run: |
+          echo "Generando reporte de despliegue..."
+          cat > deployment-report.md << EOL
+          # Informe de Despliegue Generado por IA
+
+          ## Resumen del Despliegue
+
+          **Fecha de Despliegue:** $(date '+%Y-%m-%d %H:%M:%S')
+          **Commit ID:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+          **Autor:** ${{ github.actor }}
+
+          ## Análisis del Despliegue
+
+          Este despliegue ha completado con éxito las siguientes etapas:
+
+          1. **Testing**: Pruebas automatizadas con Cypress
+          2. **Build**: Compilación de la aplicación con Vite
+          3. **Deploy**: Publicación en GitHub Pages
+
+          ## Métricas Clave
+
+          | Métrica | Valor |
+          |---------|-------|
+          | Tiempo Total | ${{ steps.deploy-time.outputs.time || 'No disponible' }} |
+          | Estado | ✅ Exitoso |
+          | URL de Despliegue | https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} |
+
+          ## Recomendaciones
+
+          - Revisar los videos y capturas de pantalla de las pruebas para verificar comportamiento visual
+          - Realizar pruebas manuales adicionales en el sitio desplegado
+          - Considerar implementar pruebas de rendimiento para futuras iteraciones
+
+          ---
+
+          *Este informe fue generado automáticamente como parte del flujo de trabajo de CI/CD.*
+          EOL
+
+          echo "report=deployment-report.md" >> $GITHUB_OUTPUT
+      - name: Commit and Push Report
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "docs: añadir informe de despliegue generado por IA"
+          file_pattern: deployment-report.md
+          branch: ${{ github.ref }}
