@@ -1,60 +1,67 @@
 name: Deploy to GitHub Pages
-
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "18"
           cache: "npm"
-
       - name: Install dependencies
         run: npm ci
-
       - name: Cache Cypress binary
         uses: actions/cache@v3
         with:
           path: ~/.cache/Cypress
           key: cypress-binary-${{ hashFiles('package-lock.json') }}
           restore-keys: cypress-binary-
-
       - name: Run Cypress tests
         uses: cypress-io/github-action@v5
         with:
           build: npm run build
           start: npm run dev
           wait-on: "http://localhost:5173"
-          # Añade cache de Cypress aquí, que es manejado por la acción de GitHub
-
+        continue-on-error: true # Permite continuar incluso si los tests fallan
+        id: cypress
+      - name: Upload screenshots on failure
+        uses: actions/upload-artifact@v4
+        if: steps.cypress.outcome == 'failure'
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+          if-no-files-found: ignore
+      - name: Upload videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-videos
+          path: cypress/videos
+          if-no-files-found: ignore
+      - name: Fail the workflow if tests failed
+        if: steps.cypress.outcome == 'failure'
+        run: exit 1
   build:
     needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "18"
           cache: "npm"
-
       - name: Install dependencies
         run: npm ci
-
       - name: Cache build
         uses: actions/cache@v3
         with:
@@ -64,34 +71,28 @@ jobs:
           key: build-${{ github.sha }}
           restore-keys: |
             build-
-
       - name: Build
         run: npm run build
         env:
           VITE_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-
       - name: Create 404 page
         run: cp dist/index.html dist/404.html
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-files
           path: dist
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
-
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-files
           path: dist
-
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
