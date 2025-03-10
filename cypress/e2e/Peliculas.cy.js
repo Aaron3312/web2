@@ -22,8 +22,8 @@ describe("template spec", () => {
 		cy.get(".overflow-x-auto > .flex > :nth-child(4)").click();
 		cy.get(".overflow-x-auto > .flex > :nth-child(3)").click();
 		cy.get(".overflow-x-auto > .flex > :nth-child(2)").click();
-		cy.get(".md\\:flex-row > .flex > :nth-child(1)").select([11]);
-		cy.get(".md\\:flex-row > .flex > :nth-child(1)").select([12]);
+		cy.get(".md\\:flex-row > .flex > :nth-child(1)").select([3]);
+		cy.get(".md\\:flex-row > .flex > :nth-child(1)").select([2]);
 		cy.get(".overflow-x-auto > .flex > :nth-child(1)").click();
 		cy.get(".mt-10 > .flex > :nth-child(3)").click();
 		cy.get(":nth-child(17) > .bg-black > div.text-white > .mt-2").click();
