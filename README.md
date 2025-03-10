@@ -1,6 +1,6 @@
 # Cuevana by aaron 🎬
 
-![Link a la pagina](https://aaron3312.github.io/web2/)
+Link de la página: [Cuevana by aaron](https://aaron3312.github.io/web2/)
 
 Una aplicación web moderna para explorar películas, series y estrenos, construida con React, Node.js y Vite, utilizando la API de TMDB (The Movie Database).
 
