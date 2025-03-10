@@ -108,9 +108,11 @@ jobs:
         with:
           node-version: "18"
 
-      # Instalamos llama-node para generar reportes basados en modelos de IA locales
-      - name: Install llama-node
-        run: npm install -g llama-node
+      # Instalamos herramientas para generar reportes
+      - name: Install reporting tools
+        run: |
+          # No instalamos ESLint
+          echo "Configurando entorno para reportes"
         continue-on-error: true
 
       # Generar un reporte de análisis de tests
@@ -149,31 +151,25 @@ jobs:
           fi
         continue-on-error: true
 
-      # Generar un reporte de calidad de código usando ESLint
-      - name: Install ESLint
-        run: npm install -g eslint
-        continue-on-error: true
-
-      - name: Run ESLint Analysis
+      # Generar un reporte de calidad de código basado en estadísticas de archivos
+      - name: Generate Code Stats Report
         run: |
           mkdir -p reports
-          echo "# Reporte de Calidad de Código" > reports/code-quality-report.md
+          echo "# Reporte de Estadísticas de Código" > reports/code-quality-report.md
           echo "## Generado el $(date)" >> reports/code-quality-report.md
 
-          if command -v eslint &> /dev/null; then
-            echo "## Análisis de ESLint" >> reports/code-quality-report.md
-            eslint --format markdown src/ >> reports/code-quality-report.md || true
-          else
-            echo "ESLint no está disponible" >> reports/code-quality-report.md
-          fi
-
-          # Añadir algunas métricas básicas de código
+          # Añadir métricas básicas de código
           echo "## Métricas de Código" >> reports/code-quality-report.md
           echo "### Conteo de archivos por tipo" >> reports/code-quality-report.md
           find src -type f | grep -v "node_modules" | sort | awk -F. '{print $NF}' | sort | uniq -c | sort -nr >> reports/code-quality-report.md
 
           echo "### Líneas de código (estimado)" >> reports/code-quality-report.md
           find src -type f -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | xargs wc -l 2>/dev/null || echo "No se pudieron contar líneas" >> reports/code-quality-report.md
+
+          # Añadir información sobre el tamaño del código
+          echo "### Tamaño de archivos" >> reports/code-quality-report.md
+          echo "Archivos más grandes (Top 10):" >> reports/code-quality-report.md
+          find src -type f | grep -v "node_modules" | xargs du -h 2>/dev/null | sort -hr | head -10 >> reports/code-quality-report.md
         continue-on-error: true
       # Crear un reporte HTML combinado
       - name: Create HTML Report
@@ -213,7 +209,7 @@ jobs:
               </div>
               
               <div class="report-card">
-                <h2>Calidad de Código</h2>
+                <h2>Estadísticas de Código</h2>
                 <div id="code-content">Cargando...</div>
               </div>
             </div>
