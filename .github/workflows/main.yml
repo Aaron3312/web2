@@ -96,27 +96,153 @@ jobs:
           name: cypress-videos
           path: cypress/videos
         continue-on-error: true
-      - name: Generate AI Performance Report
-        uses: craigtaylordev/github-actions-ai-reporter@v1.0.1
+
+      - name: Download screenshots if available
+        uses: actions/download-artifact@v4
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          template-file: .github/report-templates/performance-template.md
-          output-file: reports/performance-report.md
-          include-test-results: true
-          test-results-path: cypress/videos
-          include-test-failures: true
+          name: cypress-screenshots
+          path: cypress/screenshots
         continue-on-error: true
-      - name: Generate Code Quality Report
-        uses: GitHubSecurityLab/actions-codeql-analysis-ai-summary@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          report-title: "AI Code Quality Analysis"
-          report-path: reports/code-quality-report.md
+          node-version: "18"
+
+      # Instalamos llama-node para generar reportes basados en modelos de IA locales
+      - name: Install llama-node
+        run: npm install -g llama-node
         continue-on-error: true
+
+      # Generar un reporte de análisis de tests
+      - name: Generate Test Analysis Report
+        run: |
+          mkdir -p reports
+          echo "# Reporte de Análisis de Tests" > reports/test-report.md
+          echo "## Generado el $(date)" >> reports/test-report.md
+          echo "## Resultados de los Tests" >> reports/test-report.md
+
+          # Análisis simple de archivos de video
+          if [ -d "cypress/videos" ]; then
+            echo "### Videos de Tests Encontrados:" >> reports/test-report.md
+            ls -la cypress/videos >> reports/test-report.md
+            
+            # Contador de tests
+            TEST_COUNT=$(ls -1 cypress/videos/*.mp4 2>/dev/null | wc -l)
+            echo "### Resumen" >> reports/test-report.md
+            echo "- Total de tests ejecutados: $TEST_COUNT" >> reports/test-report.md
+            
+            # Analiza si hay tests fallidos basados en la duración
+            FAILED_COUNT=0
+            for video in cypress/videos/*.mp4; do
+              if [ -f "$video" ]; then
+                SIZE=$(stat -c%s "$video")
+                if [ "$SIZE" -lt 1000 ]; then
+                  ((FAILED_COUNT++))
+                fi
+              fi
+            done
+            
+            echo "- Tests posiblemente fallidos: $FAILED_COUNT" >> reports/test-report.md
+            echo "- Tasa de éxito estimada: $(( 100 - ($FAILED_COUNT * 100 / $TEST_COUNT) ))%" >> reports/test-report.md
+          else
+            echo "No se encontraron videos de tests" >> reports/test-report.md
+          fi
+        continue-on-error: true
+
+      # Generar un reporte de calidad de código usando ESLint
+      - name: Install ESLint
+        run: npm install -g eslint
+        continue-on-error: true
+
+      - name: Run ESLint Analysis
+        run: |
+          mkdir -p reports
+          echo "# Reporte de Calidad de Código" > reports/code-quality-report.md
+          echo "## Generado el $(date)" >> reports/code-quality-report.md
+
+          if command -v eslint &> /dev/null; then
+            echo "## Análisis de ESLint" >> reports/code-quality-report.md
+            eslint --format markdown src/ >> reports/code-quality-report.md || true
+          else
+            echo "ESLint no está disponible" >> reports/code-quality-report.md
+          fi
+
+          # Añadir algunas métricas básicas de código
+          echo "## Métricas de Código" >> reports/code-quality-report.md
+          echo "### Conteo de archivos por tipo" >> reports/code-quality-report.md
+          find src -type f | grep -v "node_modules" | sort | awk -F. '{print $NF}' | sort | uniq -c | sort -nr >> reports/code-quality-report.md
+
+          echo "### Líneas de código (estimado)" >> reports/code-quality-report.md
+          find src -type f -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" | xargs wc -l 2>/dev/null || echo "No se pudieron contar líneas" >> reports/code-quality-report.md
+        continue-on-error: true
+      # Crear un reporte HTML combinado
+      - name: Create HTML Report
+        run: |
+          mkdir -p reports
+          cat > reports/index.html << EOL
+          <!DOCTYPE html>
+          <html lang="es">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reporte de Análisis Automatizado</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+              h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+              .report-container { display: flex; flex-wrap: wrap; gap: 20px; }
+              .report-card { flex: 1; min-width: 300px; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+              .report-card h2 { margin-top: 0; color: #0066cc; }
+              pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+              .summary { background: #f0f7ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+              .timestamp { color: #666; font-style: italic; font-size: 0.9em; }
+            </style>
+          </head>
+          <body>
+            <h1>Reporte de Análisis Automatizado</h1>
+            <div class="timestamp">Generado el $(date)</div>
+            
+            <div class="summary">
+              <h2>Resumen Ejecutivo</h2>
+              <p>Este reporte combina análisis de pruebas automatizadas y calidad de código para proporcionar una visión general del estado del proyecto.</p>
+            </div>
+            
+            <div class="report-container">
+              <div class="report-card">
+                <h2>Análisis de Tests</h2>
+                <div id="test-content">Cargando...</div>
+              </div>
+              
+              <div class="report-card">
+                <h2>Calidad de Código</h2>
+                <div id="code-content">Cargando...</div>
+              </div>
+            </div>
+            
+            <script>
+              // Cargar contenido de markdown
+              async function loadMarkdown(file, elementId) {
+                try {
+                  const response = await fetch(file);
+                  const text = await response.text();
+                  document.getElementById(elementId).innerHTML = text;
+                } catch (error) {
+                  document.getElementById(elementId).innerHTML = 'Error cargando reporte: ' + error;
+                }
+              }
+              
+              // Cargar reportes
+              loadMarkdown('test-report.md', 'test-content');
+              loadMarkdown('code-quality-report.md', 'code-content');
+            </script>
+          </body>
+          </html>
+          EOL
+        continue-on-error: true
+
       - name: Upload Reports
         uses: actions/upload-artifact@v4
         with:
-          name: ai-reports
+          name: analysis-reports
           path: reports/
           if-no-files-found: warn
   deploy:
@@ -134,7 +260,7 @@ jobs:
       - name: Download reports
         uses: actions/download-artifact@v4
         with:
-          name: ai-reports
+          name: analysis-reports
           path: dist/reports
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
