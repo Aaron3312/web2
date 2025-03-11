@@ -1,7 +1,5 @@
 name: Deploy to AWS S3
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
 
 permissions:
